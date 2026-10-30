@@ -93,6 +93,11 @@ button{font:inherit;color:inherit}
 .search input{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:6px 10px 6px 30px;font:inherit;font-size:14px;color:var(--ink)}
 .search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--faint)}
 .spacer{flex:1}
+.tagpop{position:fixed;z-index:35;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:0 10px 28px rgba(0,0,0,.16);padding:4px;min-width:160px;max-width:min(280px,calc(100vw - 32px));max-height:240px;overflow:auto;box-sizing:border-box}
+.tagpop button{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;border:0;background:none;border-radius:6px;padding:8px 9px;font-size:14px;cursor:pointer;text-align:left;color:var(--accent)}
+.tagpop button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tagpop button.on{background:var(--accent-soft)}
+.tagpop small{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums}
 .pop{position:absolute;top:calc(100% - 4px);right:max(16px,env(safe-area-inset-right,0px));z-index:15;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:6px;width:min(260px,calc(100vw - 32px));box-sizing:border-box;display:flex;flex-direction:column;gap:1px}
 .mi{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;background:none;border-radius:6px;padding:9px 10px;font-size:14px;cursor:pointer;text-align:left}
 .mi:hover{background:var(--rowfocus)}
@@ -135,6 +140,9 @@ button{font:inherit;color:inherit}
 .tag:hover{background:var(--accent-soft)}
 .res{font-family:var(--f-mono);font-size:12.5px;line-height:20px;color:var(--result);background:var(--result-soft);border:0;border-radius:5px;padding:0 7px;cursor:copy;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cnt{font-family:var(--f-mono);font-size:11.5px;line-height:20px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 6px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.zoomres{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-12px 0 20px}
+.zoomres .res{font-size:15px;line-height:26px;padding:0 9px}
+.zoomres .cnt{font-size:13px;line-height:24px}
 .note{font-size:13.5px;line-height:20px;color:var(--muted);white-space:pre-wrap;word-break:break-word;outline:none;padding-bottom:5px}
 .note:empty::before{content:"Note";color:var(--faint)}
 .kids{margin-left:28px;border-left:1px solid var(--line)}
@@ -243,6 +251,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <section class="page" id="outlineView">
       <div class="crumbs" id="crumbs"></div>
       <h1 class="doctitle" id="title" spellcheck="true"></h1>
+      <div class="zoomres" id="zoomRes" hidden><button class="res" id="zRes" type="button" title="Copy result"></button><span class="cnt" id="zCnt"></span></div>
       <div class="list" id="list"></div>
       <div class="hint" id="emptyHint" hidden><span>Nothing here yet.</span><button class="btn primary" id="addFirst" type="button">Add an item</button></div>
       <div class="hint" id="noHits" hidden>No items match your search.</div>
@@ -292,6 +301,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt><kbd>Ctrl</kbd>+<kbd>B</kbd> / <kbd>I</kbd></dt><dd>Bold / italic</dd>
       <dt><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></dt><dd>Undo / redo</dd>
       <dt><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>⌫</kbd></dt><dd>Delete the item and everything under it</dd>
+      <dt><kbd>#</kbd> or <kbd>@</kbd></dt><dd>Pick from tags you've used before</dd>
       <dt><kbd>/</kbd></dt><dd>Search</dd>
       <dt><kbd>Esc</kbd></dt><dd>Stop editing, clear search</dd>
     </dl>
@@ -314,6 +324,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
   </div>
 </div>
 
+<div class="tagpop" id="tagPop" hidden role="listbox" aria-label="Tags you have used"></div>
 <div class="scrim" id="syncModal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sH">
     <h2 id="sH">GitHub sync</h2>
@@ -728,9 +739,16 @@ function refreshResults(){
     const mode=n?calcMode(n.text):null,cn=e?e.count:0;
     if(c&&cn){c.hidden=false;c.textContent=cn+(cn===1?' item':' items');c.title=mode==='both'?'Items under this one that have an amount':'Items directly under this one, not counting empty ones'}else if(c)c.hidden=true;
   });
+  /* when zoomed in, the bullet shown as the heading keeps its value and count */
+  const zd=cur(),ze=zd.zoom!=='root'?EV.get(zd.zoom):null,zv=ze&&ze.show?ze.v:null,zc=ze?ze.count:0;
+  const zb=$('zRes'),zn=$('zCnt');
+  zb.hidden=zv==null;if(zv!=null){zb.textContent=fmt(zv);zb.dataset.raw=rawNum(zv)}
+  zn.hidden=!zc;zn.textContent=zc+(zc===1?' item':' items');
+  $('zoomRes').hidden=zv==null&&!zc;
 }
 function renderOutline(opts){
   opts=opts||{};
+  hideTags();
   const d=cur();reindex(d);
   if(!idx.has(d.zoom))d.zoom='root';
   const zoom=node(d.zoom);
@@ -868,6 +886,7 @@ list.addEventListener('keydown',e=>{
   const t=e.target;
   if(t.classList.contains('note'))return noteKey(e,t);
   if(!t.classList.contains('txt'))return;
+  if(tagKey(e,t))return;
   const id=t.dataset.id,n=node(id);if(!n)return;
   const mod=e.ctrlKey||e.metaKey;const[a,b]=getSel(t);const len=t.textContent.length;
   const k=e.key,shift=e.shiftKey&&!touchOnly();
@@ -922,11 +941,84 @@ function noteKey(e,t){
 }
 function zoomOut(){const d=cur();if(d.zoom==='root')return;const p=par(d.zoom);const from=d.zoom;zoomTo(p.id);const el=list.querySelector('.txt[data-id="'+from+'"]');if(el)focusTxt(el)}
 
+/* ---------- Tag suggestions: typing # or @ lists tags used before ---------- */
+const tagPop=$('tagPop');
+const TAGRE=/(^|\s)([#@][\p{L}\p{N}_-]+)/gu;
+let tagUI={el:null,start:0,end:0,items:[],i:0};
+function hideTags(){if(!tagPop.hidden)tagPop.hidden=true;tagUI.el=null}
+function knownTags(skipId,extra){
+  const m=new Map();
+  const add=t=>{for(const x of (t||'').matchAll(TAGRE)){const k=x[2],key=k.toLowerCase(),e=m.get(key);if(e)e.n++;else m.set(key,{tag:k,n:1})}};
+  store.docs.forEach(d=>{if(d.root)(function w(n){n.children.forEach(c=>{if(c.id!==skipId)add(c.text);add(c.note);w(c)})})(d.root)});
+  add(extra);
+  return m;
+}
+function tagCheck(t){
+  if(document.activeElement!==t||!t.isConnected){hideTags();return}
+  const[a,b]=getSel(t);if(a!==b){hideTags();return}
+  const txt=t.textContent,m=txt.slice(0,a).match(/(^|\s)([#@])([\p{L}\p{N}_-]*)$/u);
+  if(!m){hideTags();return}
+  const sym=m[2],typed=m[3].toLowerCase(),start=a-1-m[3].length;
+  const end=a+txt.slice(a).match(/^[\p{L}\p{N}_-]*/u)[0].length;
+  const word=txt.slice(start+1,end).toLowerCase();
+  const items=[...knownTags(t.dataset.id,txt.slice(0,start)+txt.slice(end)).values()]
+    .filter(x=>x.tag[0]===sym&&x.tag.slice(1).toLowerCase().startsWith(typed)&&x.tag.slice(1).toLowerCase()!==word)
+    .sort((x,y)=>y.n-x.n||x.tag.localeCompare(y.tag)).slice(0,8);
+  if(!items.length){hideTags();return}
+  const keep=tagUI.el===t&&tagUI.items[tagUI.i]&&items.findIndex(x=>x.tag===tagUI.items[tagUI.i].tag);
+  tagUI={el:t,start,end,items,i:keep>0?keep:0};
+  drawTags();placeTags(t);
+}
+function drawTags(){
+  tagPop.textContent='';
+  tagUI.items.forEach((x,k)=>{
+    const b=document.createElement('button');b.type='button';b.dataset.k=k;b.className=k===tagUI.i?'on':'';
+    b.setAttribute('role','option');b.setAttribute('aria-selected',String(k===tagUI.i));
+    b.innerHTML='<span></span><small></small>';b.querySelector('span').textContent=x.tag;b.querySelector('small').textContent=x.n;
+    b.title='Used '+x.n+(x.n===1?' time':' times');
+    tagPop.append(b);
+  });
+  tagPop.hidden=false;
+}
+function placeTags(t){
+  let rect=null;
+  try{const r=getSelection().getRangeAt(0).cloneRange();r.collapse(true);rect=r.getClientRects()[0]}catch(e){}
+  if(!rect||(!rect.top&&!rect.left))rect=t.getBoundingClientRect();
+  const vv=window.visualViewport,bottom=vv?vv.offsetTop+vv.height:window.innerHeight,kb=$('kbar');
+  const limit=bottom-(kb&&kb.offsetHeight?kb.offsetHeight:0)-8;
+  const w=tagPop.offsetWidth,h=tagPop.offsetHeight;
+  tagPop.style.left=Math.max(8,Math.min(rect.left-4,window.innerWidth-w-8))+'px';
+  let top=rect.bottom+6;if(top+h>limit)top=Math.max(8,rect.top-h-6);
+  tagPop.style.top=top+'px';
+}
+function acceptTag(k){
+  const u=tagUI,t=u.el,n=t&&node(t.dataset.id);if(!n||!u.items[k])return;
+  const tag=u.items[k].tag,txt=t.textContent,rest=txt.slice(u.end),ins=tag+(rest.startsWith(' ')?'':' ');
+  beginBurst();
+  n.text=(txt.slice(0,u.start)+ins+rest).replace(/\n/g,' ');
+  t.textContent=n.text;hideTags();setCaret(t,u.start+ins.length);refreshResults();save();
+}
+function tagKey(e,t){
+  if(tagPop.hidden||tagUI.el!==t)return false;
+  const L=tagUI.items.length;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();tagUI.i=(tagUI.i+(e.key==='ArrowDown'?1:-1)+L)%L;drawTags();return true}
+  if((e.key==='Enter'||e.key==='Tab')&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();acceptTag(tagUI.i);return true}
+  if(e.key==='Escape'){e.preventDefault();hideTags();return true}
+  return false;
+}
+tagPop.addEventListener('pointerdown',e=>e.preventDefault());
+tagPop.addEventListener('mousedown',e=>e.preventDefault());
+tagPop.addEventListener('click',e=>{const b=e.target.closest('button');if(b)acceptTag(+b.dataset.k)});
+list.addEventListener('input',e=>{if(e.target.classList&&e.target.classList.contains('txt'))tagCheck(e.target)});
+list.addEventListener('focusout',()=>setTimeout(()=>{if(tagUI.el&&document.activeElement!==tagUI.el)hideTags()},0));
+document.addEventListener('selectionchange',()=>{if(!tagPop.hidden&&tagUI.el)tagCheck(tagUI.el)});
+$('main').addEventListener('scroll',()=>{if(!tagPop.hidden&&tagUI.el)placeTags(tagUI.el)},{passive:true});
+
 /* title */
 function titleInput(el){
   const d=cur();
   if(d.zoom==='root'){d.title=el.textContent.replace(/\n/g,' ')}
-  else{reindex(d);const z=node(d.zoom);if(z){beginBurst();z.text=el.textContent.replace(/\n/g,' ')}}
+  else{reindex(d);const z=node(d.zoom);if(z){beginBurst();z.text=el.textContent.replace(/\n/g,' ');refreshResults()}}
   renderSide();save();
 }
 [titleEl].forEach(el=>{
@@ -944,6 +1036,7 @@ titleEl.addEventListener('keydown',e=>{
   if(e.altKey&&e.key==='ArrowLeft'){e.preventDefault();zoomOut()}
 });
 $('addFirst').addEventListener('click',addChildOfZoom);
+$('zRes').addEventListener('click',e=>copy(e.currentTarget.dataset.raw));
 $('outlineView').addEventListener('mousedown',e=>{
   if(e.target.id==='outlineView'||e.target===list){
     const all=visibleTxt();if(!all.length)return;
