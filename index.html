@@ -651,7 +651,7 @@ function evaluate(root){
       if(mode==='both'){
         const r=kids();v=r.k?r.s:null;count=r.k;show=true;
         const nm=t.match(/^([A-Za-z_]\w*)\s*:=$/);if(nm&&v!=null)scope[nm[1]]=v;
-      }else if(mode==='count'){group(c,depth+1);count=c.children.length}
+      }else if(mode==='count'){group(c,depth+1);count=c.children.filter(x=>plain(x.text).trim()).length}
       else{
         const expr=mode==='value'?t.slice(0,-1):t,isDef=ASSIGN.test(expr);
         const r=Calc.line(expr,isDef?scope:Object.assign({},scope),{sum:block.reduce((a,x)=>a+x,0),count:block.length,prev});
@@ -726,7 +726,7 @@ function refreshResults(){
     if(v!=null){r.hidden=false;r.textContent=fmt(v);r.dataset.raw=rawNum(v)}else r.hidden=true;
     const c=r.nextElementSibling;
     const mode=n?calcMode(n.text):null,cn=e?e.count:0;
-    if(c&&cn){c.hidden=false;c.textContent=cn+(cn===1?' item':' items');c.title=mode==='both'?'Items under this one that have an amount':'Items directly under this one'}else if(c)c.hidden=true;
+    if(c&&cn){c.hidden=false;c.textContent=cn+(cn===1?' item':' items');c.title=mode==='both'?'Items under this one that have an amount':'Items directly under this one, not counting empty ones'}else if(c)c.hidden=true;
   });
 }
 function renderOutline(opts){
