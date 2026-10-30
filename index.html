@@ -48,7 +48,7 @@ button{font:inherit;color:inherit}
   padding-block:18px 14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:12px}
 .brand{display:flex;align-items:center;gap:9px;font-family:var(--f-title);font-weight:700;font-size:18px;letter-spacing:-.01em}
 .brand svg{flex:none}
-.newbtns{display:grid;grid-template-columns:1fr;gap:6px}
+.newbtns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);
   border-radius:7px;padding:6px 10px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
 .btn:hover{border-color:var(--faint)}
@@ -62,6 +62,21 @@ button{font:inherit;color:inherit}
 .doc svg{flex:none;opacity:.8}
 .doc:hover{background:var(--rowfocus);color:var(--ink)}
 .doc.on{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+.fold{display:flex;align-items:center;gap:2px;border-radius:7px;color:var(--ink)}
+.fold:hover{background:var(--rowfocus)}
+.fname{flex:1;min-width:0;display:flex;align-items:center;gap:7px;border:0;background:none;padding:7px 4px 7px 6px;cursor:pointer;font-size:14px;font-weight:600;text-align:left;color:inherit;border-radius:7px}
+.fname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fname svg{flex:none}
+.fname .chev{color:var(--faint);transition:transform .15s}
+.fold.open .chev{transform:rotate(90deg)}
+.fcount{font-size:11.5px;font-weight:500;color:var(--faint);font-variant-numeric:tabular-nums}
+.ficon{flex:none;width:28px;height:28px;border:0;background:none;border-radius:6px;cursor:pointer;color:var(--muted);display:grid;place-items:center;padding:0;font-size:16px;line-height:1}
+.ficon:hover{background:var(--surface);color:var(--ink)}
+.fdocs{display:flex;flex-direction:column;gap:2px;margin-left:13px;padding-left:5px;border-left:1px solid var(--line)}
+.fmenu{display:flex;gap:6px;flex-wrap:wrap;padding:2px 6px 8px 28px}
+.fmenu .btn{padding:4px 9px;font-size:12.5px}
+.finput{width:100%;box-sizing:border-box;border:1px solid var(--accent);background:var(--surface);color:var(--ink);border-radius:7px;padding:6px 9px;font:inherit;font-size:14px}
+.fempty{font-size:12.5px;color:var(--faint);padding:5px 8px}
 .sidefoot{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px;border:0;background:none;padding:6px 4px;margin-inline:-4px;border-radius:6px;cursor:pointer;text-align:left}
 .sidefoot:hover{background:var(--rowfocus);color:var(--ink)}
 .sidefoot.off i{background:var(--faint)}
@@ -78,6 +93,15 @@ button{font:inherit;color:inherit}
 .search input{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:6px 10px 6px 30px;font:inherit;font-size:14px;color:var(--ink)}
 .search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--faint)}
 .spacer{flex:1}
+.pop{position:absolute;top:calc(100% - 4px);right:max(16px,env(safe-area-inset-right,0px));z-index:15;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:6px;width:min(260px,calc(100vw - 32px));box-sizing:border-box;display:flex;flex-direction:column;gap:1px}
+.mi{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;background:none;border-radius:6px;padding:9px 10px;font-size:14px;cursor:pointer;text-align:left}
+.mi:hover{background:var(--rowfocus)}
+.mi[aria-pressed="true"]::after{content:"✓";color:var(--accent);font-weight:600}
+.mi.danger{color:var(--danger)}
+.mi.arm,.mi.arm:hover{background:var(--danger);color:var(--surface)}
+.msep{height:1px;background:var(--line);margin:4px 2px}
+.mfield{display:flex;flex-direction:column;gap:5px;padding:6px 10px 8px;font-size:12px;color:var(--muted);font-weight:600}
+.mfield select{font:inherit;font-size:14px;font-weight:400;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 8px}
 .iconbtn{width:32px;height:32px;padding:0}
 .page{max-width:820px;margin:0 auto;padding-block:30px 140px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;font-size:13px;color:var(--muted);margin-bottom:8px}
@@ -180,7 +204,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       Tallyline
     </div>
     <div class="newbtns">
-      <button class="btn" id="newOutline" type="button">+ New outline</button>
+      <button class="btn" id="newOutline" type="button">+ Outline</button>
+      <button class="btn" id="newFolder" type="button">+ Folder</button>
     </div>
     <div class="label">Documents</div>
     <nav class="docs" id="docs" aria-label="Documents"></nav>
@@ -198,12 +223,21 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <input id="search" type="search" placeholder="Search this outline  ( / )" aria-label="Search this outline" autocomplete="off">
       </label>
       <span class="spacer"></span>
-      <button class="btn outline-only" id="hideDone" type="button" aria-pressed="false">Hide done</button>
-      <button class="btn outline-only hide-sm" id="expandAll" type="button">Expand all</button>
-      <button class="btn outline-only hide-sm" id="collapseAll" type="button">Collapse all</button>
-      <button class="btn" id="exportBtn" type="button">Export</button>
-      <button class="btn iconbtn hide-sm" id="keysBtn" type="button" aria-label="Help" title="Help and shortcuts">?</button>
-      <button class="btn" id="delBtn" type="button">Delete</button>
+      <button class="btn iconbtn" id="moreBtn" type="button" aria-label="More options" aria-haspopup="true" aria-expanded="false">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="13" cy="8" r="1.5" fill="currentColor"/></svg>
+      </button>
+      <div class="pop" id="pop" hidden>
+        <label class="mfield" for="moveSel">Folder<select id="moveSel"></select></label>
+        <div class="msep"></div>
+        <button class="mi" id="hideDone" type="button" aria-pressed="false">Hide done items</button>
+        <button class="mi" id="expandAll" type="button">Expand all</button>
+        <button class="mi" id="collapseAll" type="button">Collapse all</button>
+        <div class="msep"></div>
+        <button class="mi" id="exportBtn" type="button">Export and backup</button>
+        <button class="mi" id="keysBtn" type="button">Help and shortcuts</button>
+        <div class="msep"></div>
+        <button class="mi danger" id="delBtn" type="button">Delete document</button>
+      </div>
     </div>
 
     <section class="page" id="outlineView">
@@ -509,6 +543,7 @@ function load(){
     store.v=2;
   }
   if(!store.docs.some(d=>d.id===store.activeId))store.activeId=store.docs[0].id;
+  ensureFolders();
 }
 function saveNow(){
   clearTimeout(saveT);saveT=null;
@@ -839,6 +874,7 @@ list.addEventListener('keydown',e=>{
   if(k==='Enter'&&!e.shiftKey&&!mod&&!e.altKey){
     e.preventDefault();
     if(e.isComposing)return;
+    if(len===0&&!n.children.length&&n.note==null&&par(id).id!==cur().zoom){act.outdent(id,0);return}
     if(a===0&&b===0&&len>0){const nn=mk('');op(()=>{const[,s,i]=sib(id);s.splice(i,0,nn)});renderOutline({focus:{id,pos:0}});return}
     const nn=mk(n.text.slice(b));
     op(()=>{n.text=n.text.slice(0,a);if(n.children.length&&!n.collapsed&&!state.q)n.children.unshift(nn);else{const[,s,i]=sib(id);s.splice(i+1,0,nn)}});
@@ -918,12 +954,16 @@ $('outlineView').addEventListener('mousedown',e=>{
 /* mobile key bar: keep it above the on-screen keyboard (iOS puts fixed bars behind it) */
 (function(){
   const vv=window.visualViewport,bar=$('kbar');if(!vv)return;
+  /* iOS shrinks only the visible area for the keyboard, so pin the bar to the bottom of what is visible */
   function place(){
-    const kb=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);
-    bar.style.transform=kb>40?'translateY('+(-kb)+'px)':'';
-    bar.classList.toggle('kbup',kb>40);
+    const full=document.documentElement.clientHeight,up=full-vv.height>120;
+    if(up){bar.classList.add('kbup');bar.style.bottom='auto';bar.style.top=Math.round(vv.offsetTop+vv.height-bar.offsetHeight)+'px'}
+    else{bar.classList.remove('kbup');bar.style.top='';bar.style.bottom=''}
   }
-  vv.addEventListener('resize',place);vv.addEventListener('scroll',place);window.addEventListener('focusin',()=>setTimeout(place,250));
+  let raf=0;const later=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(place)};
+  vv.addEventListener('resize',later);vv.addEventListener('scroll',later);window.addEventListener('scroll',later,{passive:true});
+  window.addEventListener('focusin',()=>{later();[120,300,600].forEach(t=>setTimeout(place,t))});
+  window.addEventListener('focusout',()=>setTimeout(place,300));
 })();
 $('kbar').addEventListener('mousedown',e=>e.preventDefault());
 $('kbar').addEventListener('click',e=>{
@@ -948,16 +988,100 @@ $('collapseAll').addEventListener('click',()=>foldAll(true));
 
 /* ---------- Sidebar & documents ---------- */
 const ICON_LIST='<svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><circle cx="3" cy="4" r="1.5" fill="currentColor"/><circle cx="3" cy="11" r="1.5" fill="currentColor"/><path d="M7 4h6M7 11h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
-function renderSide(){
-  const el=$('docs');el.textContent='';
+const ICON_FOLDER='<svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><path d="M1.8 4.2c0-.7.5-1.2 1.2-1.2h2.6l1.4 1.5h5c.7 0 1.2.5 1.2 1.2v5.6c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+const sideUI={adding:false,menu:null,renaming:null,arm:null};
+const cleanFolder=v=>(v||'').replace(/[\\/:*?"<>|#%\u0000-\u001f]/g,'-').replace(/\s+/g,' ').trim().replace(/^\.+/,'').slice(0,60);
+function findFolder(n){if(!n)return null;const k=n.toLowerCase();return store.folders.find(f=>f.name.toLowerCase()===k)||null}
+function ensureFolders(){
+  store.folders=Array.isArray(store.folders)?store.folders.filter(f=>f&&typeof f.name==='string'&&f.name.trim()):[];
   store.docs.forEach(d=>{
-    const b=document.createElement('button');b.type='button';b.className='doc'+(d.id===store.activeId?' on':'');
-    b.innerHTML=ICON_LIST+'<span></span>';
-    b.querySelector('span').textContent=d.title||'Untitled';
-    if(d.id===store.activeId)b.setAttribute('aria-current','page');
-    b.addEventListener('click',()=>openDoc(d.id));
-    el.append(b);
+    if(!d.folder){delete d.folder;return}
+    const f=findFolder(d.folder);
+    if(f)d.folder=f.name;else store.folders.push({name:d.folder,open:true});
   });
+  store.folders.sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+}
+function trashFolder(f){if(f.ph)(store.ghTrash=store.ghTrash||[]).push({path:f.ph});delete f.ph;delete f.synced}
+function docBtn(d){
+  const b=document.createElement('button');b.type='button';b.className='doc'+(d.id===store.activeId?' on':'');
+  b.innerHTML=ICON_LIST+'<span></span>';
+  b.querySelector('span').textContent=d.title||'Untitled';
+  if(d.id===store.activeId)b.setAttribute('aria-current','page');
+  b.addEventListener('click',()=>openDoc(d.id));
+  return b;
+}
+function folderInput(val,done){
+  const i=document.createElement('input');i.className='finput';i.id='folderName';i.value=val;i.placeholder='Folder name';
+  i.setAttribute('aria-label','Folder name');i.maxLength=60;i.autocomplete='off';
+  let fin=false;const finish=ok=>{if(fin)return;fin=true;done(ok?i.value:null)};
+  i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();finish(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();finish(false)}});
+  i.addEventListener('blur',()=>finish(true));
+  requestAnimationFrame(()=>{i.focus();i.select()});
+  return i;
+}
+function addFolder(v){
+  sideUI.adding=false;const n=cleanFolder(v);
+  if(n){const ex=findFolder(n);if(ex)toast('There is already a folder called '+ex.name);else{store.folders.push({name:n,open:true});ensureFolders();save();toast('Folder “'+n+'” created')}}
+  renderSide();
+}
+function renameFolder(f,v){
+  sideUI.renaming=null;const n=cleanFolder(v);
+  if(n&&n!==f.name){
+    const ex=findFolder(n);
+    if(ex&&ex!==f)toast('There is already a folder called '+ex.name);
+    else{trashFolder(f);store.docs.forEach(d=>{if(d.folder===f.name)d.folder=n});f.name=n;ensureFolders();save()}
+  }
+  renderSide();
+}
+function removeFolder(f){
+  trashFolder(f);
+  store.docs.forEach(d=>{if(d.folder===f.name)delete d.folder});
+  store.folders.splice(store.folders.indexOf(f),1);
+  sideUI.menu=null;sideUI.arm=null;save();renderSide();
+  toast('Folder removed. Its documents are now at the top level');
+}
+function renderSide(){
+  ensureFolders();
+  const el=$('docs');el.textContent='';
+  if(sideUI.adding)el.append(folderInput('',addFolder));
+  store.folders.forEach(f=>{
+    const docs=store.docs.filter(d=>d.folder===f.name);
+    const wrap=document.createElement('div');
+    if(sideUI.renaming===f.name)wrap.append(folderInput(f.name,v=>renameFolder(f,v)));
+    else{
+      const row=document.createElement('div');row.className='fold'+(f.open?' open':'');
+      const nb=document.createElement('button');nb.type='button';nb.className='fname';nb.setAttribute('aria-expanded',String(!!f.open));
+      nb.innerHTML='<svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.2 1.8 6.6 5 3.2 8.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'+ICON_FOLDER+'<span></span><em class="fcount"></em>';
+      nb.querySelector('span').textContent=f.name;nb.querySelector('.fcount').textContent=docs.length||'';
+      nb.addEventListener('click',()=>{f.open=!f.open;save();renderSide()});
+      const add=document.createElement('button');add.type='button';add.className='ficon';add.textContent='+';
+      add.setAttribute('aria-label','New outline in '+f.name);add.title='New outline in this folder';
+      add.addEventListener('click',()=>newDoc(f.name));
+      const more=document.createElement('button');more.type='button';more.className='ficon';
+      more.innerHTML='<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.4" fill="currentColor"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><circle cx="13" cy="8" r="1.4" fill="currentColor"/></svg>';
+      more.setAttribute('aria-label','Folder options');
+      more.addEventListener('click',()=>{sideUI.menu=sideUI.menu===f.name?null:f.name;sideUI.arm=null;renderSide()});
+      row.append(nb,add,more);wrap.append(row);
+    }
+    if(sideUI.menu===f.name&&sideUI.renaming!==f.name){
+      const m=document.createElement('div');m.className='fmenu';
+      const rn=document.createElement('button');rn.type='button';rn.className='btn';rn.textContent='Rename';
+      rn.addEventListener('click',()=>{sideUI.renaming=f.name;sideUI.menu=null;renderSide()});
+      const del=document.createElement('button');del.type='button';del.className='btn'+(sideUI.arm===f.name?' arm':'');
+      del.textContent=sideUI.arm===f.name?'Tap again to remove':'Remove folder';
+      del.title='Its documents move to the top level';
+      del.addEventListener('click',()=>{if(sideUI.arm!==f.name){sideUI.arm=f.name;renderSide();return}removeFolder(f)});
+      m.append(rn,del);wrap.append(m);
+    }
+    if(f.open){
+      const box=document.createElement('div');box.className='fdocs';
+      docs.forEach(d=>box.append(docBtn(d)));
+      if(!docs.length){const e=document.createElement('div');e.className='fempty';e.textContent='Empty. Tap + to add an outline';box.append(e)}
+      wrap.append(box);
+    }
+    el.append(wrap);
+  });
+  store.docs.filter(d=>!d.folder).forEach(d=>el.append(docBtn(d)));
 }
 function setDrawer(on){$('app').classList.toggle('drawer',on)}
 $('menuBtn').addEventListener('click',()=>setDrawer(true));
@@ -969,18 +1093,39 @@ function render(){
   renderOutline({focus:null});
 }
 function focusTitle(el){el.focus();const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)}
-$('newOutline').addEventListener('click',()=>{
+function newDoc(folderName){
   const d={id:uid(),type:'outline',title:'',zoom:'root',root:{id:'root',text:'',children:[mk('')]}};
+  if(folderName){d.folder=folderName;const f=findFolder(folderName);if(f)f.open=true}
   store.docs.unshift(d);openDoc(d.id);focusTitle(titleEl);
-});
+}
+$('newOutline').addEventListener('click',()=>newDoc());
+$('newFolder').addEventListener('click',()=>{sideUI.adding=true;sideUI.menu=null;sideUI.renaming=null;renderSide()});
 const delBtn=$('delBtn');
-function resetDel(){clearTimeout(state.delT);delete delBtn.dataset.arm;delBtn.textContent='Delete';delBtn.classList.remove('arm')}
+function resetDel(){clearTimeout(state.delT);delete delBtn.dataset.arm;delBtn.textContent='Delete document';delBtn.classList.remove('arm')}
 delBtn.addEventListener('click',()=>{
-  if(!delBtn.dataset.arm){delBtn.dataset.arm='1';delBtn.textContent='Confirm delete';delBtn.classList.add('arm');clearTimeout(state.delT);state.delT=setTimeout(resetDel,3500);return}
+  if(!delBtn.dataset.arm){delBtn.dataset.arm='1';delBtn.textContent='Tap again to delete';delBtn.classList.add('arm');clearTimeout(state.delT);state.delT=setTimeout(resetDel,3500);return}
   const i=store.docs.findIndex(x=>x.id===store.activeId);const gone=store.docs.splice(i,1)[0];if(gone.gh)(store.ghTrash=store.ghTrash||[]).push({path:gone.gh.path});
   if(!store.docs.length)store.docs.push({id:uid(),type:'outline',title:'',zoom:'root',root:{id:'root',text:'',children:[mk('')]}});
   store.activeId=store.docs[Math.max(0,i-1)].id;hist.delete(gone.id);
-  render();save();toast('Deleted “'+(gone.title||'Untitled')+'”');
+  setPop(false);render();save();toast('Deleted “'+(gone.title||'Untitled')+'”');
+});
+/* more menu */
+const pop=$('pop'),moreBtn=$('moreBtn');
+function fillMove(){
+  const sel=$('moveSel'),d=cur();sel.textContent='';
+  sel.add(new Option('No folder',''));
+  store.folders.forEach(f=>sel.add(new Option(f.name,f.name)));
+  if(!store.folders.length){const o=new Option('Create folders with + Folder','',false,false);o.disabled=true;sel.add(o)}
+  sel.value=d.folder||'';
+}
+function setPop(on){pop.hidden=!on;moreBtn.setAttribute('aria-expanded',String(on));if(on)fillMove();else resetDel()}
+moreBtn.addEventListener('click',()=>setPop(pop.hidden));
+document.addEventListener('pointerdown',e=>{if(!pop.hidden&&!pop.contains(e.target)&&!moreBtn.contains(e.target))setPop(false)});
+pop.addEventListener('click',e=>{const b=e.target.closest('.mi');if(b&&b.id!=='delBtn')setPop(false)});
+$('moveSel').addEventListener('change',e=>{
+  const d=cur(),v=e.target.value;
+  if(v){d.folder=v;const f=findFolder(v);if(f)f.open=true}else delete d.folder;
+  setPop(false);renderSide();save();toast(v?'Moved to '+v:'Moved out of the folder');
 });
 
 /* ---------- Export / import ---------- */
@@ -1023,6 +1168,7 @@ document.querySelectorAll('.scrim').forEach(m=>{
   m.addEventListener('click',e=>{if(e.target===m||e.target.hasAttribute('data-close'))closeModals()});
 });
 document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&!pop.hidden){setPop(false);moreBtn.focus();return}
   if(e.key==='Escape'){if([...document.querySelectorAll('.scrim')].some(m=>!m.hidden)){closeModals();return}setDrawer(false)}
   const tgt=e.target,typing=tgt.isContentEditable||/INPUT|TEXTAREA/.test(tgt.tagName);
   if(typing)return;
@@ -1072,8 +1218,10 @@ function textToOutline(text){
 const docToText=d=>outlineToText(d.root);
 function docFromFile(path,text,sha){
   const name=path.split('/').pop();
+  const b=gh.cfg?baseDir():'',parts=path.slice(b?b.length+1:0).split('/');
   const title=name.replace(/(\.outline|\.calc)?\.txt$/i,'');
   const d={id:uid(),type:'outline',title,zoom:'root',root:/\.calc\.txt$/i.test(name)?calcToRoot(text):textToOutline(text)};
+  if(parts.length===2){const f=findFolder(parts[0]);d.folder=f?f.name:parts[0]}
   d.gh={path,sha,text:docToText(d)};
   return d;
 }
@@ -1084,8 +1232,10 @@ const gh={cfg:null,branch:null,busy:false,again:false,last:null,err:null,timer:n
 function loadCfg(){try{const c=JSON.parse(localStorage.getItem(GHKEY)||'null');if(c&&c.owner&&c.repo&&c.token)gh.cfg=c}catch(e){}}
 function saveCfg(){try{gh.cfg?localStorage.setItem(GHKEY,JSON.stringify(gh.cfg)):localStorage.removeItem(GHKEY)}catch(e){}}
 const safeName=t=>((t||'').replace(/[\\/:*?"<>|#%\u0000-\u001f]/g,'-').replace(/\s+/g,' ').trim().replace(/^\.+/,'').slice(0,80))||'Untitled';
-const folder=()=>(gh.cfg.folder||'').replace(/^\/+|\/+$/g,'');
-const docPath=d=>(folder()?folder()+'/':'')+safeName(d.title)+EXT;
+const baseDir=()=>(gh.cfg.folder||'').replace(/^\/+|\/+$/g,'');
+const pre=()=>baseDir()?baseDir()+'/':'';
+const docPath=d=>pre()+(d.folder?safeName(d.folder)+'/':'')+safeName(d.title)+EXT;
+const phPath=f=>pre()+safeName(f.name)+'/.folder';
 const encPath=p=>p.split('/').map(encodeURIComponent).join('/');
 function b64e(s){const b=new TextEncoder().encode(s);let bin='';for(let i=0;i<b.length;i+=0x8000)bin+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(bin)}
 function b64d(s){const bin=atob(s.replace(/\s/g,''));const b=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);return new TextDecoder().decode(b)}
@@ -1109,12 +1259,20 @@ async function resolveBranch(){
   if(!repo)throw Object.assign(new Error('missing'),{status:404});
   gh.branch=repo.default_branch||'main';
 }
+/* every file under the notes folder, one level of subfolders deep */
 async function listRemote(){
-  const f=folder();
-  const res=await api('GET',(f?'/contents/'+encPath(f):'/contents')+ref());
-  const m=new Map();
-  if(Array.isArray(res))res.forEach(x=>{if(x.type==='file'&&/\.txt$/i.test(x.name))m.set(x.path,x.sha)});
-  return m;
+  let t;
+  try{t=await api('GET','/git/trees/'+encPath(gh.branch)+'?recursive=1')}
+  catch(e){if(e.status===409)t=null;else throw e}
+  const P=pre(),txt=new Map(),all=new Map();
+  if(t&&Array.isArray(t.tree))t.tree.forEach(x=>{
+    if(x.type!=='blob'||!x.path.startsWith(P))return;
+    const parts=x.path.slice(P.length).split('/');
+    if(parts.length>2||parts[0].startsWith('.'))return;
+    all.set(x.path,x.sha);
+    if(/\.txt$/i.test(x.path))txt.set(x.path,x.sha);
+  });
+  return{txt,all};
 }
 async function getFile(p){
   const j=await api('GET','/contents/'+encPath(p)+ref());
@@ -1135,7 +1293,7 @@ function errText(e){
   if(e.status===409||e.status===422)return'GitHub refused a save. Tap here, then Sync now';
   return'GitHub sync failed: '+e.message;
 }
-function pending(){return store.docs.some(d=>!d.gh||d.gh.path!==docPath(d)||d.gh.text!==docToText(d))||!!(store.ghTrash&&store.ghTrash.length)}
+function pending(){return store.docs.some(d=>!d.gh||d.gh.path!==docPath(d)||d.gh.text!==docToText(d))||!!(store.ghTrash&&store.ghTrash.length)||(store.folders||[]).some(f=>!f.synced||f.ph!==phPath(f))}
 function setStatus(){
   const f=$('sidefoot');if(!f)return;
   const s=f.querySelector('span');let t,cls='';
@@ -1158,13 +1316,24 @@ async function sync(){
   const touched=new Set();const before=store.activeId;
   try{
     await resolveBranch();
-    const remote=await listRemote();
+    const {txt:remote,all}=await listRemote();
     store.ghTrash=store.ghTrash||[];
     while(store.ghTrash.length){
       const t=store.ghTrash[0];
-      if(remote.has(t.path)&&!store.docs.some(d=>d.gh&&d.gh.path===t.path)){await delFile(t.path,remote.get(t.path));remote.delete(t.path)}
+      if(all.has(t.path)&&!store.docs.some(d=>d.gh&&d.gh.path===t.path)){await delFile(t.path,all.get(t.path));all.delete(t.path);remote.delete(t.path)}
       store.ghTrash.shift();
     }
+    /* folders: each one keeps a small .folder file so empty folders sync too */
+    const P=pre(),owned=new Set(store.docs.map(d=>d.gh&&d.gh.path).filter(Boolean)),rdirs=new Map();
+    for(const [p] of all){const parts=p.slice(P.length).split('/');if(parts.length===2&&(parts[1]==='.folder'||(/\.txt$/i.test(parts[1])&&!owned.has(p))))rdirs.set(parts[0].toLowerCase(),parts[0])}
+    store.folders=store.folders||[];
+    for(const f of store.folders.slice()){
+      const key=safeName(f.name).toLowerCase(),ph=phPath(f);
+      if(rdirs.has(key)){rdirs.delete(key);if(!all.has(ph))await putFile(ph,'Tallyline folder\n');f.synced=true;f.ph=ph}
+      else if(f.synced&&f.ph===ph){store.folders.splice(store.folders.indexOf(f),1);store.docs.forEach(d=>{if(d.folder===f.name)delete d.folder});touched.add('folders')}
+      else{await putFile(ph,'Tallyline folder\n');f.synced=true;f.ph=ph}
+    }
+    for(const [,name] of rdirs)if(!findFolder(name)){store.folders.push({name,open:false,synced:all.has(P+name+'/.folder'),ph:P+name+'/.folder'});touched.add('folders')}
     const used=new Set(),copies=[],drop=[];
     for(const d of store.docs.slice()){
       if(d.gh){
@@ -1218,6 +1387,7 @@ async function sync(){
   gh.busy=false;
   saveNow();
   if(touched.size){if(touched.has(store.activeId)||store.activeId!==before)render();else renderSide()}
+  else renderSide();
   setStatus();
   if(gh.again){gh.again=false;scheduleSync(800)}
 }
@@ -1246,14 +1416,14 @@ $('ghSave').addEventListener('click',async()=>{
   if(!info){gh.cfg=prev;ghMsg("Can't find that repository. Check the name, and that the token was given access to it.",true);return}
   if(!info.private){gh.cfg=prev;ghMsg('That repository is public. Make it private first so your notes stay private.',true);return}
   const key=k=>k?[k.owner,k.repo,k.folder||'',k.branch||''].join('|').toLowerCase():'';
-  if(key(prev)!==key(next)){store.docs.forEach(d=>delete d.gh);store.ghTrash=[]}
+  if(key(prev)!==key(next)){store.docs.forEach(d=>delete d.gh);(store.folders||[]).forEach(f=>{delete f.synced;delete f.ph});store.ghTrash=[]}
   saveCfg();$('ghToken').value='';$('ghNow').hidden=$('ghOff').hidden=false;
   ghMsg('Connected. Syncing…');await sync();
   ghMsg(gh.err||'Connected. Your documents are saved to '+next.repo+'.',!!gh.err);
 });
 $('ghNow').addEventListener('click',async()=>{ghMsg('Syncing…');await sync();ghMsg(gh.err||'Synced.',!!gh.err)});
 $('ghOff').addEventListener('click',()=>{
-  gh.cfg=null;gh.branch=null;gh.err=null;saveCfg();store.docs.forEach(d=>delete d.gh);store.ghTrash=[];saveNow();
+  gh.cfg=null;gh.branch=null;gh.err=null;saveCfg();store.docs.forEach(d=>delete d.gh);(store.folders||[]).forEach(f=>{delete f.synced;delete f.ph});store.ghTrash=[];saveNow();
   $('ghNow').hidden=$('ghOff').hidden=true;ghMsg('Disconnected. Your documents stay on this device, and the files stay on GitHub.');
 });
 
