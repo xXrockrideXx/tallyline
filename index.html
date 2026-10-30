@@ -122,6 +122,7 @@ button{font:inherit;color:inherit}
 /* Mobile key bar */
 .kbar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);gap:4px;justify-content:space-between;
   padding-top:6px;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+.kbar.kbup{padding-bottom:6px}
 .kbar button{flex:1;height:38px;border:1px solid var(--line);background:var(--bg);border-radius:7px;display:grid;place-items:center;cursor:pointer;padding:0;font-size:12px}
 
 /* Modals & toast */
@@ -914,6 +915,16 @@ $('outlineView').addEventListener('mousedown',e=>{
 });
 
 /* mobile key bar */
+/* mobile key bar: keep it above the on-screen keyboard (iOS puts fixed bars behind it) */
+(function(){
+  const vv=window.visualViewport,bar=$('kbar');if(!vv)return;
+  function place(){
+    const kb=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);
+    bar.style.transform=kb>40?'translateY('+(-kb)+'px)':'';
+    bar.classList.toggle('kbup',kb>40);
+  }
+  vv.addEventListener('resize',place);vv.addEventListener('scroll',place);window.addEventListener('focusin',()=>setTimeout(place,250));
+})();
 $('kbar').addEventListener('mousedown',e=>e.preventDefault());
 $('kbar').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||!state.last)return;
