@@ -870,8 +870,8 @@ list.addEventListener('keydown',e=>{
   if(!t.classList.contains('txt'))return;
   const id=t.dataset.id,n=node(id);if(!n)return;
   const mod=e.ctrlKey||e.metaKey;const[a,b]=getSel(t);const len=t.textContent.length;
-  const k=e.key;
-  if(k==='Enter'&&!e.shiftKey&&!mod&&!e.altKey){
+  const k=e.key,shift=e.shiftKey&&!touchOnly();
+  if(k==='Enter'&&!shift&&!mod&&!e.altKey){
     e.preventDefault();
     if(e.isComposing)return;
     if(len===0&&!n.children.length&&n.note==null&&par(id).id!==cur().zoom){act.outdent(id,0);return}
@@ -880,7 +880,7 @@ list.addEventListener('keydown',e=>{
     op(()=>{n.text=n.text.slice(0,a);if(n.children.length&&!n.collapsed&&!state.q)n.children.unshift(nn);else{const[,s,i]=sib(id);s.splice(i+1,0,nn)}});
     renderOutline({focus:{id:nn.id,pos:0}});return;
   }
-  if(k==='Enter'&&e.shiftKey&&!mod){e.preventDefault();act.note(id);return}
+  if(k==='Enter'&&shift&&!mod){e.preventDefault();act.note(id);return}
   if(k==='Enter'&&mod){e.preventDefault();act.done(id,a);return}
   if(k==='Tab'){e.preventDefault();e.shiftKey?act.outdent(id,a):act.indent(id,a);return}
   if(k==='Backspace'&&mod&&e.shiftKey){e.preventDefault();act.remove(id);return}
@@ -913,9 +913,11 @@ list.addEventListener('keydown',e=>{
   }
   if(k==='Escape'){e.preventDefault();if(state.q){setSearch('');return}t.blur()}
 });
+/* the iPhone keyboard reports Shift while auto-capitals is on, so Shift is ignored on touch-only devices */
+const touchOnly=()=>!matchMedia('(any-pointer:fine)').matches;
 function noteKey(e,t){
   const id=t.dataset.id,n=node(id);
-  if((e.key==='Enter'&&e.shiftKey)||e.key==='Escape'){e.preventDefault();focusTxt(list.querySelector('.txt[data-id="'+id+'"]'));return}
+  if((e.key==='Enter'&&e.shiftKey&&!touchOnly())||e.key==='Escape'){e.preventDefault();focusTxt(list.querySelector('.txt[data-id="'+id+'"]'));return}
   if(e.key==='Backspace'&&!t.innerText.replace(/\n/g,'')){e.preventDefault();op(()=>{n.note=null});renderOutline({focus:{id}})}
 }
 function zoomOut(){const d=cur();if(d.zoom==='root')return;const p=par(d.zoom);const from=d.zoom;zoomTo(p.id);const el=list.querySelector('.txt[data-id="'+from+'"]');if(el)focusTxt(el)}
