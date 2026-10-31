@@ -458,14 +458,17 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sH">
     <h2 id="sH">GitHub sync</h2>
     <p class="mtext">Each document is saved as a plain-text file in a private GitHub repository. Your token is kept on this device only and is only sent to GitHub.</p>
+    <form id="ghForm" autocomplete="on" novalidate>
     <div class="form">
-      <label>GitHub username<input id="ghOwner" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label>GitHub username<input id="ghOwner" name="username" autocomplete="username" autocapitalize="off" spellcheck="false"></label>
       <label>Private repository<input id="ghRepo" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tallyline-data"></label>
       <label>Folder (optional)<input id="ghFolder" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Leave blank for the top level"></label>
       <label>Branch (optional)<input id="ghBranch" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="The repository's main branch"></label>
-      <label class="wide">Access token<input id="ghToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…"></label>
+      <label class="wide">Access token<input id="ghToken" name="password" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" placeholder="github_pat_…"></label>
     </div>
-    <div class="mrow"><button class="btn primary" id="ghSave" type="button">Connect and sync</button><button class="btn" id="ghNow" type="button">Sync now</button><button class="btn" id="ghOff" type="button">Disconnect</button></div>
+    <p class="mtext" style="margin:10px 0 0">When your phone or browser offers to save the token as a password, say yes. Next time, tap the token box to fill it in.</p>
+    <div class="mrow"><button class="btn primary" id="ghSave" type="submit">Connect and sync</button><button class="btn" id="ghNow" type="button">Sync now</button><button class="btn" id="ghOff" type="button">Disconnect</button></div>
+    </form>
     <div class="mrow"><span id="ghMsg" role="status"></span></div>
     <details class="howto">
       <summary>How to make the token</summary>
@@ -2424,7 +2427,8 @@ function openSync(){
   setDrawer(false);openModal($('syncModal'));
 }
 $('sidefoot').addEventListener('click',openSync);
-$('ghSave').addEventListener('click',async()=>{
+$('ghForm').addEventListener('submit',async e=>{
+  e.preventDefault();
   const v=id=>$(id).value.trim();
   const next={owner:v('ghOwner').replace(/^@/,''),repo:v('ghRepo'),folder:v('ghFolder'),branch:v('ghBranch'),token:v('ghToken')||(gh.cfg&&gh.cfg.token)||''};
   if(!next.owner||!next.repo||!next.token){ghMsg('Fill in your username, the repository and the token.',true);return}
@@ -2435,7 +2439,7 @@ $('ghSave').addEventListener('click',async()=>{
   if(!info.private){gh.cfg=prev;ghMsg('That repository is public. Make it private first so your notes stay private.',true);return}
   const key=k=>k?[k.owner,k.repo,k.folder||'',k.branch||''].join('|').toLowerCase():'';
   if(key(prev)!==key(next)){store.docs.forEach(d=>delete d.gh);(store.folders||[]).forEach(f=>{delete f.synced;delete f.ph});store.ghTrash=[]}
-  saveCfg();$('ghToken').value='';$('ghNow').hidden=$('ghOff').hidden=false;
+  saveCfg();setTimeout(()=>{$('ghToken').value=''},1500);$('ghNow').hidden=$('ghOff').hidden=false;
   ghMsg('Connected. Syncing…');await sync();
   ghMsg(gh.err||'Connected. Your documents are saved to '+next.repo+'.',!!gh.err);
 });
