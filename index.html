@@ -2352,6 +2352,17 @@ async function sync(){
       else{await putFile(ph,'Tallyline folder\n');f.synced=true;f.ph=ph}
     }
     for(const [,name] of rdirs)if(!findFolder(name)){store.folders.push({name,open:false,synced:all.has(P+name+'/.folder'),ph:P+name+'/.folder'});touched.add('folders')}
+    /* tidy up "(other device)" copies that ended up the same as their original */
+    for(const x of store.docs.slice()){
+      const m=(x.title||'').match(/^(.*) \(other device\)(?: \d+)?$/);if(!m)continue;
+      const o=store.docs.find(y=>y!==x&&y.title===m[1]&&(y.folder||'')===(x.folder||''));
+      if(o&&docToText(o)===docToText(x)){store.docs.splice(store.docs.indexOf(x),1);if(x.gh)store.ghTrash.push({path:x.gh.path});touched.add(x.id)}
+    }
+    while(store.ghTrash.length){
+      const t=store.ghTrash[0];
+      if(all.has(t.path)&&!store.docs.some(d=>d.gh&&d.gh.path===t.path)){await delFile(t.path,all.get(t.path));all.delete(t.path);remote.delete(t.path)}
+      store.ghTrash.shift();
+    }
     const used=new Set(),copies=[],drop=[];
     for(const d of store.docs.slice()){
       if(d.gh){
@@ -2365,7 +2376,10 @@ async function sync(){
             const f=await getFile(known.path);
             if(f){
               if(docToText(d)===known.text&&docPath(d)===known.path){applyRemote(d,known.path,f.text,f.sha);touched.add(d.id);used.add(known.path);continue}
-              const copy=docFromFile(known.path,f.text,f.sha);copy.gh=null;copy.title=d.title+' (other device)';copies.push(copy);
+              /* both devices changed it, but to the same thing: nothing to keep apart */
+              const theirs=docFromFile(known.path,f.text,f.sha);
+              if(theirs.gh.text===docToText(d)){d.gh={path:known.path,sha:f.sha,text:theirs.gh.text};used.add(known.path);continue}
+              const copy=theirs;copy.gh=null;copy.title=d.title+' (other device)';copies.push(copy);
               known.sha=f.sha;
             }
           }
