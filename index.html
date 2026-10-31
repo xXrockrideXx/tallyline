@@ -18,7 +18,7 @@
 :root{
   --bg:#eef1f0; --panel:#e3e8e6; --surface:#fbfcfb; --ink:#17201d; --muted:#5b6763; --faint:#98a39f;
   --line:#d3dbd8; --ring:#d6dedb; --rule:#e4eae7; --rowfocus:#e6ecea;
-  --accent:#2350c4; --accent-soft:#e1e8fb; --result:#94470b; --result-soft:#f8ead9; --actual:#6a3fb5; --actual-soft:#ede5fb; --pos:#1c7a3d; --pos-soft:#dcf2e3; --neg:#b3261e; --neg-soft:#fbe4e2; --tape:#f6f3ec;
+  --accent:#2350c4; --accent-soft:#e1e8fb; --result:#94470b; --result-soft:#f8ead9; --tot:#0a6f78; --tot-soft:#d6eff1; --avg:#a52f6c; --avg-soft:#f9e1ee; --tape:#f6f3ec;
   --hit:#fbeeb0; --danger:#b3261e;
   --f-title:"Schibsted Grotesk","Segoe UI",system-ui,sans-serif;
   --f-body:"Hanken Grotesk","Segoe UI",system-ui,-apple-system,sans-serif;
@@ -28,12 +28,12 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#111614; --panel:#171d1b; --surface:#161c1a; --ink:#e3ebe8; --muted:#94a19c; --faint:#5f6b67;
   --line:#28312e; --ring:#2e3835; --rule:#1f2725; --rowfocus:#1c2422;
-  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --actual:#bba3ff; --actual-soft:#2a2244; --pos:#6fd394; --pos-soft:#16301f; --neg:#ff8a80; --neg-soft:#3b1d1b; --tape:#1a1f1c;
+  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --tot:#5fd0da; --tot-soft:#11313a; --avg:#f38cc2; --avg-soft:#3a1a2b; --tape:#1a1f1c;
   --hit:#4a3f12; --danger:#ff8a80; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#111614; --panel:#171d1b; --surface:#161c1a; --ink:#e3ebe8; --muted:#94a19c; --faint:#5f6b67;
   --line:#28312e; --ring:#2e3835; --rule:#1f2725; --rowfocus:#1c2422;
-  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --actual:#bba3ff; --actual-soft:#2a2244; --pos:#6fd394; --pos-soft:#16301f; --neg:#ff8a80; --neg-soft:#3b1d1b; --tape:#1a1f1c;
+  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --tot:#5fd0da; --tot-soft:#11313a; --avg:#f38cc2; --avg-soft:#3a1a2b; --tape:#1a1f1c;
   --hit:#4a3f12; --danger:#ff8a80; color-scheme:dark}
 
 html{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%}
@@ -115,6 +115,8 @@ button{font:inherit;color:inherit}
 .crumbs button{border:0;background:none;padding:2px 4px;border-radius:4px;cursor:pointer;color:var(--muted);max-width:28ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .crumbs button:hover{color:var(--accent);background:var(--accent-soft)}
 .crumbs b{color:var(--faint);font-weight:400}
+.titlerow{position:relative;display:flex;align-items:flex-start;gap:8px}
+.titlerow .doctitle{flex:1;min-width:0}
 .doctitle{font-family:var(--f-title);font-weight:700;font-size:clamp(26px,4vw,34px);letter-spacing:-.02em;line-height:1.15;margin:0 0 20px;outline:none;text-wrap:balance;word-break:break-word}
 .doctitle:empty::before{content:"Untitled";color:var(--faint)}
 
@@ -142,12 +144,11 @@ button{font:inherit;color:inherit}
 .tag:hover{background:var(--accent-soft)}
 .res{font-family:var(--f-mono);font-size:12.5px;line-height:20px;color:var(--result);background:var(--result-soft);border:0;border-radius:5px;padding:0 7px;cursor:copy;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cnt{font-family:var(--f-mono);font-size:11.5px;line-height:20px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 6px;white-space:nowrap;font-variant-numeric:tabular-nums}
-.res.act{color:var(--actual);background:var(--actual-soft)}
-.res.act:hover{background:var(--actual-soft)}
-.res.dif,.res.pct{background:var(--panel);color:var(--muted)}
-.res.dif.pos,.res.pct.pos{color:var(--pos);background:var(--pos-soft)}
-.res.dif.neg,.res.pct.neg{color:var(--neg);background:var(--neg-soft)}
-.zoomres{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-12px 0 20px}
+.res.tot{color:var(--tot);background:var(--tot-soft)}
+.res.avgv{color:var(--avg);background:var(--avg-soft)}
+.chips{margin-left:auto;display:inline-flex;flex-wrap:wrap;justify-content:flex-end;align-items:baseline;gap:4px 6px;max-width:100%}
+.chips:not(:has(> :not([hidden]))){display:none}
+.zoomres{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px;margin:-12px 0 20px}
 .zoomres .res{font-size:15px;line-height:26px;padding:0 9px}
 .zoomres .cnt{font-size:13px;line-height:24px}
 .note{font-size:13.5px;line-height:20px;color:var(--muted);white-space:pre-wrap;word-break:break-word;outline:none;padding-bottom:5px}
@@ -315,7 +316,6 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <button class="mi" id="collapseAll" type="button">Collapse all</button>
         <div class="msep"></div>
         <button class="mi" id="dupBtn" type="button">Duplicate</button>
-        <button class="mi" id="nextBtn" type="button">Copy for next month</button>
         <button class="mi" id="excelBtn" type="button">Copy for Excel</button>
         <div class="msep"></div>
         <button class="mi" id="imgBtn" type="button">Add image to current item</button>
@@ -334,8 +334,11 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="seg" role="group" aria-label="Where to search"><button type="button" id="scopeHere" aria-pressed="true">This outline</button><button type="button" id="scopeAll" aria-pressed="false">All documents</button></div>
       </div>
       <div class="crumbs" id="crumbs"></div>
-      <h1 class="doctitle" id="title" spellcheck="true"></h1>
-      <div class="zoomres" id="zoomRes" hidden><button class="res" id="zRes" type="button" title="Copy result"></button><button class="res act" id="zAct" type="button" title="Actual amount. Tap to copy" hidden></button><button class="res dif" id="zDif" type="button" hidden></button><button class="res pct" id="zPct" type="button" hidden></button><span class="cnt" id="zCnt"></span></div>
+      <div class="titlerow">
+        <h1 class="doctitle" id="title" spellcheck="true"></h1>
+      </div>
+      </div>
+      <div class="zoomres" id="zoomRes" hidden><button class="res" id="zRes" type="button" title="Copy result"></button><span class="cnt" id="zCnt"></span></div>
       <div class="list" id="list"></div>
       <div class="hint" id="emptyHint" hidden><span>Nothing here yet.</span><button class="btn primary" id="addFirst" type="button">Add an item</button></div>
       <div class="hint" id="noHits" hidden>No items match your search.</div>
@@ -426,13 +429,9 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
       <dt><code>Fuel =:</code></dt><dd>Total of the items under it, with a count. Add-ons go after the =</dd>
       <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon)</dd>
-      <dt><code>Week 1: 850;1200</code></dt><dd>Budget;actual. Totals show the budget, then the actual in green</dd>
-      <dt><code>Week 2: 850;;</code></dt><dd>Actual is the same as the budget</dd>
-      <dt>Green / red</dt><dd>What is left in the budget, or how much it went over</dd>
-      <dt><code>Sales: 100;120 =%</code></dt><dd>Change from first to second, with the percentage. =:% adds the count too</dd>
       <dt><code>rate = 850</code></dt><dd>A variable for every bullet below it</dd>
       <dt><code>spent =</code></dt><dd>A one-word name before = keeps the total as a variable</dd>
-      <dt><code>total · avg</code></dt><dd>Adds or averages the items above it at the same level</dd>
+      <dt><code>total · avg</code></dt><dd>Adds or averages the items above it at the same level, shown in teal and pink. They are not counted again in totals</dd>
       <dt><code>prev</code></dt><dd>The value of the item just above it</dd>
       <dt><code>Rent: 6500</code></dt><dd>Words before a colon are a label</dd>
       <dt><code>+ 15% · 20% of x</code></dt><dd>Percentages the way you say them; also 10% off x</dd>
@@ -665,7 +664,7 @@ function seed(){
     N('Put away: 20% of left ='),
     N('After saving: left - prev =')
   ]}};
-  return{v:8,docs:[outline,more,budget],activeId:outline.id,settings:{hideDone:false}};
+  return{v:9,docs:[outline,more,budget],activeId:outline.id,settings:{hideDone:false}};
 }
 /* newer parts of the Getting started example; also added to existing copies (see load) */
 function basicsExtra(N){
@@ -676,9 +675,11 @@ function basicsExtra(N){
     N("Drag a bullet's dot to move the item. On the phone, hold the dot for a moment first")
   ];
 }
-const MORE_POINTER='When this feels familiar, open “More things to try (example)” from ☰ for budgets, links, photos and more';
+const MORE_POINTER='When this feels familiar, open “More things to try (example)” from ☰ for totals, links, photos and more';
+const OLD_POINTER='When this feels familiar, open “More things to try (example)” from ☰ for budgets, links, photos and more';
+const MORE_MATHS_HEAD='More maths: add : after the = for the item count (=:). A spaced : on its own shows the count only';
 function moreMaths(N){
-  return N('More maths: add : for the item count (=:), % for the change (=%), or both (=:%). A spaced : on its own shows the count only',[
+  return N(MORE_MATHS_HEAD,[
     N('rate = 850'),
     N('Fuel: rate * 4 ='),
     N('VAT on R2,400: 2400 * 15% ='),
@@ -688,8 +689,7 @@ function moreMaths(N){
 function handyExtras(N){
   return N('Handy extras',[
     N('⋯ → Duplicate makes an exact copy of the open document'),
-    N('⋯ → Copy for next month makes a copy with the budgets kept and the actuals cleared'),
-    N('⋯ → Copy for Excel copies the amounts as columns, ready to paste into a spreadsheet'),
+    N('⋯ → Copy for Excel copies the items and their amounts as two columns, ready to paste into a spreadsheet'),
     N('Deleted documents wait in Recently deleted, at the bottom of ☰, for 30 days'),
     N("Type @ followed by the word today to add today's date as a tag"),
     N('Open the Month-end budget example to see variables, totals and prev working together')
@@ -721,18 +721,13 @@ function newSections(N){
     ])
   ];
 }
-/* the budget vs actual section of the Getting started example */
+/* the spending section of the examples (it replaced the old budget vs actual section) */
+const SPEND_HEAD='Spending: list what you spent and let the heading add it up';
 function budgetSection(N){
-  return N('Budget vs actual: write the budget, a semicolon, then what you actually spent',[
-    N('Groceries =:',[N('Week 1: R900;R1,150'),N('Week 2: R900;;'),N('Week 3: R900;R860'),N('Week 4: R900')],
-      {note:'Orange is the budget, purple is what was actually spent, and green shows what is left (red if over budget). Week 2 ends with ;; because the actual matched the budget. Week 4 has no actual yet, so it only counts towards the budget.'}),
-    N('A single item works too, if it ends with an equals sign',[N('New tyres: 2 * 1,450;3,100 =')]),
-    N('Spending that was never budgeted: leave the budget empty',[N('Car wash: ;120 =')]),
-    N('Percentage change: end with =% to compare a start and end value, or =:% on a total',[
-      N('Sales: 100;120 =%'),
-      N('Fuel price per litre: 21.43;23.10 =%'),
-      N('Monthly totals =:%',[N('January: 18,400;19,950'),N('February: 17,900;16,800')])
-    ])
+  return N(SPEND_HEAD,[
+    N('Groceries =:',[N('Week 1: R1,150'),N('Week 2: R900'),N('Week 3: R860'),N('Total: total ='),N('Average: avg =')],
+      {note:'Total and Average add up and average the weeks above them, shown in teal and pink. The heading leaves them out, so nothing is counted twice.'}),
+    N('A single item works too, if it ends with an equals sign',[N('New tyres: 2 * 1,550 =')])
   ]);
 }
 function valid(d){return d&&typeof d==='object'&&(d.type==='calc'?typeof d.text==='string':(d.type==='outline'&&d.root&&Array.isArray(d.root.children)))}
@@ -813,6 +808,43 @@ function load(){
       store.docs.splice(store.docs.indexOf(gs)+1,0,md);
     }
     store.v=8;
+  }
+  if(!(store.v>=9)){
+    /* budget;actual pairs and =% were removed: keep the actual amount, plain endings, and refresh the examples */
+    const toActual=t=>{
+      const m=t.match(/^(.*?)(\s*(?:=[:%]*|:=%?)\s*)$/),body=m?m[1]:t;let end=m?m[2]:'';
+      end=end.replace(/=:?%/,x=>x.includes(':')?'=:':'=').replace(/:=%/,'=:');
+      let out=body;
+      if(/;;\s*$/.test(body))out=body.replace(/\s*;;\s*$/,'');
+      else{
+        const k=body.lastIndexOf(';');
+        if(k>=0){const left=body.slice(0,k),right=body.slice(k+1).trim();
+          if(!left.includes(';')&&/\d/.test(right)&&/^[\sR$€£\d.,*+\-\/()%kK]*$/.test(right)){
+            const lab=left.match(/^([^:;]*[A-Za-z][^:;]*:|\s*[A-Za-z_]\w*\s*=)/);
+            out=(lab?lab[1].replace(/\s*$/,' '):'')+right;
+          }}
+      }
+      return out+end;
+    };
+    const OLD_HEADS=['Inline maths: end with = for the value. Add : for the item count (=:), % for the change (=%), or both (=:%). A spaced : on its own shows the count only'];
+    const NEW_INLINE='Inline maths: end with = for the value. Add : for the item count (=:). A spaced : on its own shows the count only';
+    store.docs.forEach(d=>{if(!d.root)return;
+      delete d.view;
+      (function w(n){n.children.forEach(k=>{
+        if(OLD_HEADS.includes(k.text))k.text=NEW_INLINE;
+        else if(k.text==='More maths: add : for the item count (=:), % for the change (=%), or both (=:%). A spaced : on its own shows the count only')k.text=MORE_MATHS_HEAD;
+        else if(k.text===OLD_POINTER)k.text=MORE_POINTER;
+        else k.text=toActual(k.text).replace(/\[\[([^\[\]]*?)\s*=:?%\]\]/g,(x,a)=>'[['+a+' =:]]');
+        w(k)})})(d.root);
+      if(/^more things to try/i.test(d.title||'')){
+        const N=(t,kids,extra)=>mk(t,Object.assign({children:kids||[]},extra||{}));
+        const k=d.root.children,bi=k.findIndex(x=>/^budget vs actual/i.test(x.text));
+        if(bi>=0)k.splice(bi,1,budgetSection(N));
+        (function w(n){n.children=n.children.filter(c=>!/^⋯ → Copy for next month/.test(c.text));n.children.forEach(c=>{
+          if(/^⋯ → Copy for Excel copies the amounts as columns/.test(c.text))c.text='⋯ → Copy for Excel copies the items and their amounts as two columns, ready to paste into a spreadsheet';w(c)})})(d.root);
+      }
+    });
+    store.v=9;
   }
   if(!store.docs.some(d=>d.id===store.activeId))store.activeId=store.docs[0].id;
   store.trash=(store.trash||[]).filter(t=>t&&t.doc&&Date.now()-t.at<30*864e5);
@@ -918,35 +950,29 @@ function undo(redo){
 }
 
 /* inline maths: one pass through the outline in document order */
-/* an item ending in = is worked out; letters after the = add more:  =: item count,  =% change and percentage,  =:% both.
-   The older :=  and :=% still work. A spaced  :  on its own shows the count only. */
-const EQ_END=/(?:=([:%]*)|:=(%?))$/;
+/* an item ending in = is worked out; =: also shows the item count (the older := still works).
+   A spaced  :  on its own shows the count only. */
+const EQ_END=/(?:=(:?)|:=())$/;
 function eqFlags(t){
   t=(t||'').trim();const m=t.match(EQ_END);if(!m)return null;
   const before=t.slice(0,m.index);
   if(m[1]!==undefined&&/[=<>!]$/.test(before))return null;
   const f=m[1]!==undefined?m[1]:':'+m[2];
-  return{count:f.includes(':'),pct:f.includes('%'),expr:before};
+  return{count:f.includes(':'),expr:before};
 }
 function calcMode(t){if(eqFlags(t))return'value';if(/\s:$/.test((t||'').trim()))return'count';return null}
-const isPct=t=>{const f=eqFlags(t);return!!(f&&f.pct)};
 function isCalcText(t){return calcMode(t)==='value'}
 const ASSIGN=/^\s*([A-Za-z_]\w*)\s*=(?!=)\s*\S/;
 let EV=new Map();
-/* budget;actual pairs, e.g. "Week 1: R850;R1200" */
-function dualLine(expr,scope,ctx){
-  if(!expr.includes(';'))return null;
-  let x=expr.replace(/\/\/.*$/,'');
-  const nm=x.match(/^\s*([A-Za-z_]\w*)\s*=(?!=)(.*)$/);if(nm)x=nm[2];
-  const lab=x.match(/^([^:;]*[A-Za-z][^:;]*):(.*)$/);if(lab)x=lab[2];
-  const ev=p=>{if(!p.trim())return null;const r=Calc.line(p,Object.assign({},scope),ctx);return r.k==='val'?r.v:undefined};
-  /* "R850;;" means the actual is the same as the budget */
-  if(/;;\s*$/.test(x)){const same=x.replace(/;;\s*$/,'');if(same.includes(';'))return null;const v=ev(same);return v==null?null:{b:v,a:v,name:nm&&nm[1]}}
-  const parts=x.split(';');if(parts.length!==2)return null;
-  const b=ev(parts[0]),a=ev(parts[1]);
-  if(b===undefined||a===undefined||(b==null&&a==null))return null;
-  /* no budget means a budget of 0, so unbudgeted spending shows as over */
-  return{b:b==null?0:b,a,name:nm&&nm[1]};
+/* lines that sum or average the items above them: "total", "sum", "avg", "average" (not when used as a variable name) */
+function summaryKind(expr,scope){
+  let x=(expr||'').replace(/\/\/.*$/,'');
+  const a=x.match(/^\s*[A-Za-z_]\w*\s*=(?!=)(.*)$/);if(a)x=a[1];
+  const lab=x.match(/^([^:]*[A-Za-z][^:]*):(.*)$/);if(lab)x=lab[2];
+  const has=re=>{for(const m of x.matchAll(re))if(!Object.prototype.hasOwnProperty.call(scope,m[1]))return true;return false};
+  if(has(/\b(total|sum)\b(?!\s*\()/gi))return'total';
+  if(has(/\b(avg|average)\b(?!\s*\()/gi))return'avg';
+  return null;
 }
 function evaluate(root){
   EV=new Map();const scope={};
@@ -955,35 +981,33 @@ function evaluate(root){
     const block=[];let prev=null;
     for(const c of n.children){
       const t=c.text.trim(),mode=calcMode(t);
-      let v=null,a=null,dual=false,show=false,count=0;
+      let v=null,show=false,count=0,kind=null;
       const kids=()=>{
-        group(c,depth+1);let s=0,k=0,sa=0,any=false;
-        for(const x of c.children){const e=EV.get(x.id);if(!e)continue;
-          if(e.v!=null)s+=e.v;if(e.a!=null)sa+=e.a;if(e.v!=null||e.a!=null)k++;if(e.dual)any=true}
-        return{s,k,sa,any};
+        group(c,depth+1);let s=0,k=0;
+        for(const x of c.children){const e=EV.get(x.id);if(!e||e.kind||e.v==null)continue;s+=e.v;k++}
+        return{s,k};
       };
-      const fromKids=r=>{v=r.k?r.s:null;if(r.any){dual=true;a=r.sa;if(v==null)v=0}};
+      const fromKids=r=>{v=r.k?r.s:null};
       const fl=eqFlags(t);
       if(fl){
         const ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,prev};
         const r=c.children.length?kids():null;
         if(r&&r.k){fromKids(r);show=true;const nm=fl.expr.match(/^\s*([A-Za-z_]\w*)\s*$/);if(nm&&v!=null)scope[nm[1]]=v}
         else if(!(fl.count&&c.children.length)){
-          const dl=dualLine(fl.expr,scope,ctx);
-          if(dl){dual=true;v=dl.b;a=dl.a;show=true;if(dl.name&&v!=null)scope[dl.name]=v}
-          else{const isDef=ASSIGN.test(fl.expr);const q=Calc.line(fl.expr,isDef?scope:Object.assign({},scope),ctx);if(q.k==='val'){v=q.v;show=true}}
+          const isDef=ASSIGN.test(fl.expr),sk=summaryKind(fl.expr,scope);
+          const q=Calc.line(fl.expr,isDef?scope:Object.assign({},scope),ctx);if(q.k==='val'){v=q.v;show=true;kind=sk}
         }
         if(fl.count)count=r?r.k:0;
       }else if(mode==='count'){group(c,depth+1);count=c.children.filter(x=>plain(x.text).trim()).length}
       else{
         const expr=t,ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,prev};
-        const dl=dualLine(expr,scope,ctx);
-        if(dl){dual=true;v=dl.b;a=dl.a;if(dl.name&&v!=null)scope[dl.name]=v}
-        else{const isDef=ASSIGN.test(expr);const r=Calc.line(expr,isDef?scope:Object.assign({},scope),ctx);if(r.k==='val'){v=r.v;show=isDef}}
+        const isDef=ASSIGN.test(expr),sk=summaryKind(expr,scope);
+        const r=Calc.line(expr,isDef?scope:Object.assign({},scope),ctx);if(r.k==='val'){v=r.v;show=isDef;kind=sk}
         group(c,depth+1);
       }
-      EV.set(c.id,{v,a,dual,show,count,pct:isPct(t)});
-      if(v!=null){block.push(v);prev=v}
+      EV.set(c.id,{v,show,count,kind});
+      /* a total or average is not counted again by later totals or by the heading above */
+      if(v!=null){if(!kind)block.push(v);prev=v}
     }
   })(root,0);
 }
@@ -1063,16 +1087,15 @@ function nodeEl(n,q,focus){
   const txt=document.createElement('div');txt.className='txt';txt.dataset.id=n.id;editable(txt);
   if(focus&&focus.id===n.id&&!focus.note){txt.textContent=n.text;txt.dataset.raw='1'}else txt.innerHTML=fmtText(n.text);
   const res=document.createElement('button');res.type='button';res.className='res';res.dataset.id=n.id;res.tabIndex=-1;res.hidden=true;res.title='Copy result';
-  const act=document.createElement('button');act.type='button';act.className='res act';act.dataset.id=n.id;act.tabIndex=-1;act.hidden=true;act.title='Actual amount. Tap to copy';
-  const dif=document.createElement('button');dif.type='button';dif.className='res dif';dif.dataset.id=n.id;dif.tabIndex=-1;dif.hidden=true;
-  const pc=document.createElement('button');pc.type='button';pc.className='res pct';pc.dataset.id=n.id;pc.tabIndex=-1;pc.hidden=true;
   const cnt=document.createElement('span');cnt.className='cnt';cnt.dataset.id=n.id;cnt.hidden=true;
-  line.append(txt,res,act,dif,pc,cnt);body.append(line);
+  /* answers sit together at the right-hand edge */
+  const chips=document.createElement('span');chips.className='chips';chips.append(res,cnt);
+  line.append(txt,chips);body.append(line);
   const editingNote=focus&&focus.note&&focus.id===n.id;
   if(store.settings.hideNotes&&n.note&&!editingNote){
     const nm=document.createElement('button');nm.type='button';nm.className='nmark';nm.dataset.id=n.id;nm.tabIndex=-1;nm.title='Show note';nm.setAttribute('aria-label','Show note');
     nm.innerHTML='<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 4h9M2.5 7h9M2.5 10h5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
-    line.append(nm);
+    line.insertBefore(nm,chips);
   }
   if(n.note!=null&&(n.note!==''||editingNote)&&(!store.settings.hideNotes||editingNote)){
     const note=document.createElement('div');note.className='note';note.dataset.id=n.id;editable(note);note.textContent=n.note;body.append(note);
@@ -1085,36 +1108,29 @@ function nodeEl(n,q,focus){
   }
   return wrap;
 }
-/* fills one row of chips: budget (orange), actual (purple), difference and % change (green or red), item count */
-const signed=(x,suffix)=>(x>0?'+':'')+fmt(x)+(suffix||'');
+/* fills one row of chips: the answer (orange, teal for total, pink for average) and the item count */
 function fillChips(els,e,mode){
-  const on=!!(e&&e.show),dual=on&&e.dual;
-  const set=(el,v,text,title)=>{if(!el)return;if(v==null){el.hidden=true;return}el.hidden=false;el.textContent=text==null?fmt(v):text;el.dataset.raw=rawNum(v);if(title)el.title=title};
-  set(els.b,on?e.v:null,null,dual?(e.pct?'First amount. Tap to copy':'Budget. Tap to copy'):'Copy result');
-  set(els.a,dual?e.a:null,null,e&&e.pct?'Second amount. Tap to copy':'Actual. Tap to copy');
-  let d=null,p=null;
-  if(dual&&e.v!=null&&e.a!=null){
-    d=e.pct?e.a-e.v:e.v-e.a;
-    if(e.pct&&e.v!==0)p=Math.round(d/Math.abs(e.v)*1000)/10;
+  const on=!!(e&&e.show),v=on?e.v:null,b=els.b;
+  if(b){
+    if(v==null)b.hidden=true;
+    else{b.hidden=false;b.textContent=fmt(v);b.dataset.raw=rawNum(v);
+      b.title=e.kind==='total'?'Total of the items above. Tap to copy':e.kind==='avg'?'Average of the items above. Tap to copy':'Copy result'}
+    b.classList.toggle('tot',v!=null&&e.kind==='total');b.classList.toggle('avgv',v!=null&&e.kind==='avg');
   }
-  const tone=(el,x)=>{if(!el)return;el.classList.toggle('pos',x>0);el.classList.toggle('neg',x<0)};
-  set(els.d,d,d==null?null:signed(d),d==null?'':e.pct?'Change from the first amount to the second':(d>=0?'Left in the budget':'Over budget'));tone(els.d,d);
-  set(els.p,p,p==null?null:signed(p,'%'),'Percentage change');tone(els.p,p);
   const cn=e?e.count:0;
   if(els.c){if(cn){els.c.hidden=false;els.c.textContent=cn+(cn===1?' item':' items');els.c.title=mode==='count'?'Items directly under this one, not counting empty ones':'Items under this one that have an amount'}else els.c.hidden=true}
-  return on&&e.v!=null||dual||!!cn;
+  return v!=null||!!cn;
 }
 function refreshResults(){
   evaluate(cur().root);
   list.querySelectorAll('.line').forEach(line=>{
     const t=line.querySelector('.txt');if(!t)return;
     const id=t.dataset.id,n=node(id);
-    fillChips({b:line.querySelector('.res:not(.act):not(.dif):not(.pct)'),a:line.querySelector('.res.act'),d:line.querySelector('.res.dif'),p:line.querySelector('.res.pct'),c:line.querySelector('.cnt')},EV.get(id),n?calcMode(n.text):null);
+    fillChips({b:line.querySelector('.res'),c:line.querySelector('.cnt')},EV.get(id),n?calcMode(n.text):null);
   });
-  /* when zoomed in, the bullet shown as the heading keeps its values and count */
+  /* when zoomed in, the bullet shown as the heading keeps its value and count */
   const zd=cur(),zn=zd.zoom!=='root'?node(zd.zoom):null,ze=zn?EV.get(zd.zoom):null;
-  const anyZ=fillChips({b:$('zRes'),a:$('zAct'),d:$('zDif'),p:$('zPct'),c:$('zCnt')},ze,zn?calcMode(zn.text):null);
-  $('zoomRes').hidden=!anyZ;
+  $('zoomRes').hidden=!fillChips({b:$('zRes'),c:$('zCnt')},ze,zn?calcMode(zn.text):null);
 }
 function renderOutline(opts){
   opts=opts||{};
@@ -1786,9 +1802,6 @@ titleEl.addEventListener('keydown',e=>{
 });
 $('addFirst').addEventListener('click',addChildOfZoom);
 $('zRes').addEventListener('click',e=>copy(e.currentTarget.dataset.raw));
-$('zAct').addEventListener('click',e=>copy(e.currentTarget.dataset.raw));
-$('zDif').addEventListener('click',e=>copy(e.currentTarget.dataset.raw));
-$('zPct').addEventListener('click',e=>copy(e.currentTarget.dataset.raw));
 $('outlineView').addEventListener('mousedown',e=>{
   if(e.target.id==='outlineView'||e.target===list){
     const all=visibleTxt();if(!all.length)return;
@@ -1995,52 +2008,6 @@ function drawTrash(){
   });
 }
 
-/* ---------- Copy for next month: keep budgets, clear actuals ---------- */
-const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-function nextTitle(t){
-  t=(t||'').trim()||'Untitled';
-  const bumpYear=(s,i)=>i===11?s.replace(/\b(19|20)(\d\d)\b/,y=>String(+y+1)):s;
-  for(let i=0;i<12;i++){
-    const full=new RegExp('\\b'+MONTHS[i]+'\\b','i');
-    if(full.test(t))return bumpYear(t.replace(full,MONTHS[(i+1)%12]),i);
-  }
-  for(let i=0;i<12;i++){
-    const short=new RegExp('\\b'+MONTHS[i].slice(0,3)+'\\b','i');
-    if(short.test(t))return bumpYear(t.replace(short,MONTHS[(i+1)%12].slice(0,3)),i);
-  }
-  const ym=t.match(/\b((?:19|20)\d\d)[-/](\d\d?)\b/);
-  if(ym){let y=+ym[1],m=+ym[2]+1;if(m>12){m=1;y++}return t.replace(ym[0],y+ym[0].slice(4,5)+String(m).padStart(ym[2].length,'0'))}
-  return t+' (next)';
-}
-/* returns the text without its actual amount, null for unbudgeted spending, or the text unchanged */
-function clearActual(text){
-  const fl=eqFlags(text),body=fl?fl.expr:text,end=fl?text.trim().slice(fl.expr.length).trim():'';
-  let out;
-  if(/;;\s*$/.test(body)){out=body.replace(/\s*;;\s*$/,'')}
-  else{
-    const k=body.lastIndexOf(';');if(k<0)return text;
-    const left=body.slice(0,k),right=body.slice(k+1);
-    if(left.includes(';')||!/\d/.test(right)||!/^[\sR$€£\d.,*+\-\/()%kK]*$/.test(right))return text;
-    if(!/\d/.test(left.replace(/^[^:;]*[A-Za-z][^:;]*:/,'')))return null;
-    out=left.replace(/\s+$/,'');
-  }
-  return out+(end?' '+end:'');
-}
-function copyForNextMonth(){
-  const d=cur();let removed=0,cleared=0;
-  const clone=n=>{const c=Object.assign({},n,{id:uid(),done:false,children:[]});n.children.forEach(k=>{
-      const t=clearActual(k.text);
-      if(t===null&&!k.children.length){removed++;return}
-      const ck=clone(k);if(t!==null&&t!==k.text){ck.text=t;cleared++}c.children.push(ck)});
-    delete c.collapsed;if(n.collapsed)c.collapsed=true;return c};
-  const root=clone(d.root);root.id='root';
-  const nd={id:uid(),type:'outline',title:nextTitle(d.title),zoom:'root',root};
-  if(d.folder)nd.folder=d.folder;
-  store.docs.splice(store.docs.indexOf(d)+1,0,nd);
-  openDoc(nd.id);
-  toast('Made “'+nd.title+'”. '+cleared+(cleared===1?' actual':' actuals')+' cleared'+(removed?', '+removed+' unbudgeted '+(removed===1?'line':'lines')+' left out':''));
-}
-$('nextBtn').addEventListener('click',copyForNextMonth);
 /* ---------- Duplicate: an exact copy with " (copy)" added to the name ---------- */
 function duplicateDoc(){
   const d=cur();
@@ -2057,27 +2024,26 @@ function duplicateDoc(){
 $('dupBtn').addEventListener('click',duplicateDoc);
 
 /* ---------- Copy for Excel: item, budget, actual, difference (and % when used) ---------- */
-function excelLabel(n){
-  const fl=eqFlags(n.text);let t=plain(fl?fl.expr:n.text);
-  const lab=t.match(/^([^:;]*[A-Za-z][^:;]*):(.*)$/);
-  if(lab&&/\d/.test(lab[2]))t=lab[1];
-  return t.trim()||'(untitled)';
+function excelLabel(n,hasValue){
+  const fl=eqFlags(n.text);let t=plain(fl?fl.expr:n.text).trim();
+  if(hasValue){
+    const nm=t.match(/^([A-Za-z_]\w*)\s*=(?!=)/);if(nm)return nm[1];
+    const lab=t.match(/^([^:]*[A-Za-z][^:]*):(.*)$/);if(lab&&lab[2].trim())return lab[1].trim();
+  }
+  return t||'(untitled)';
 }
 function copyForExcel(){
   evaluate(cur().root);
   const roots=sel?selIds().map(node):(node(cur().zoom)||cur().root).children;
-  const rows=[],anyPct={v:false};
+  const rows=[];
   (function w(list,depth){list.forEach(n=>{
     if(store.settings.hideDone&&n.done)return;
-    const e=EV.get(n.id)||{},b=e.v!=null?e.v:null,a=e.a!=null?e.a:null;
-    let d='',p='';
-    if(b!=null&&a!=null){const x=e.pct?a-b:b-a;d=rawNum(x);if(e.pct){anyPct.v=true;if(b)p=rawNum(Math.round(x/Math.abs(b)*1000)/10)}}
-    rows.push(['  '.repeat(depth)+excelLabel(n).replace(/\t/g,' '),b!=null?rawNum(b):'',a!=null?rawNum(a):'',d,p]);
+    const e=EV.get(n.id)||{};
+    rows.push(['  '.repeat(depth)+excelLabel(n,e.v!=null).replace(/\t/g,' '),e.v!=null?rawNum(e.v):'']);
     w(n.children,depth+1);
   })})(roots,0);
   if(!rows.length){toast('Nothing to copy');return}
-  const head=['Item','Budget','Actual','Difference'];if(anyPct.v)head.push('Change %');
-  const tsv=[head,...rows.map(r=>anyPct.v?r:r.slice(0,4))].map(r=>r.join('\t')).join('\n');
+  const tsv=[['Item','Amount'],...rows].map(r=>r.join('\t')).join('\n');
   copy(tsv,'Copied '+rows.length+(rows.length===1?' row':' rows')+'. Paste into Excel');
 }
 $('excelBtn').addEventListener('click',copyForExcel);
@@ -2169,7 +2135,7 @@ function outlineText(n,depth){
   return n.children.map(c=>{
     const pad='  '.repeat(depth);
     let s=pad+'- '+(c.done?'[x] ':'')+c.text;
-    {const e=EV.get(c.id);if(e&&e.show&&e.dual){s+=' '+(e.v!=null?rawNum(e.v):'')+';'+(e.a!=null?rawNum(e.a):'');if(e.v!=null&&e.a!=null){const dd=e.pct?e.a-e.v:e.v-e.a;s+=' ['+(dd>0?'+':'')+rawNum(dd)+']';if(e.pct&&e.v)s+=' ['+(dd>0?'+':'')+rawNum(Math.round(dd/Math.abs(e.v)*1000)/10)+'%]'}}else if(e&&e.show&&e.v!=null)s+=' '+rawNum(e.v);if(e&&e.count)s+=' ('+e.count+(e.count===1?' item':' items')+')'}
+    {const e=EV.get(c.id);if(e&&e.show&&e.v!=null)s+=' '+rawNum(e.v);if(e&&e.count)s+=' ('+e.count+(e.count===1?' item':' items')+')'}
     s+='\n';
     if(c.note)s+=c.note.split('\n').map(l=>pad+'    '+l).join('\n')+'\n';
     return s+outlineText(c,depth+1);
