@@ -430,7 +430,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon). A line like <code>Technical: Bonolo, Jaco</code> counts each name, and <code>101: 1,3,5</code> or <code>301: 1-10</code> counts each number. Counts show in brackets, like (15)</dd>
       <dt><code>rate = 850</code></dt><dd>A variable for every bullet below it</dd>
       <dt><code>spent =</code></dt><dd>A one-word name before = keeps the total as a variable</dd>
-      <dt><code>total · avg</code></dt><dd>Adds or averages the items above it at the same level, shown in teal and pink. They are not counted again in totals</dd>
+      <dt><code>sum</code></dt><dd>Adds the items since the previous sum (a subtotal), shown in teal</dd>
+      <dt><code>total · avg</code></dt><dd>Adds or averages everything above at the same level, in teal and pink. None of these are counted again</dd>
       <dt><code>prev</code></dt><dd>The value of the item just above it</dd>
       <dt><code>Rent: 6500</code></dt><dd>Words before a colon are a label</dd>
       <dt><code>+ 15% · 20% of x</code></dt><dd>Percentages the way you say them; also 10% off x</dd>
@@ -539,6 +540,7 @@ const Calc=(()=>{
       const n=tk.v,ln=n.toLowerCase();
       if(T[i+1]&&T[i+1].t==='('&&FUN[ln]){out.push({t:'f',fn:FUN[ln]});continue}
       if(Object.prototype.hasOwnProperty.call(scope,n)){out.push({t:'n',v:scope[n]});continue}
+      if(ln==='sum'&&ctx.seg!=null){out.push({t:'n',v:ctx.seg});continue}
       if(ln==='sum'||ln==='total'){if(ctx.sum==null)throw 0;out.push({t:'n',v:ctx.sum});continue}
       if(ln==='avg'||ln==='average'){if(!ctx.count)throw 0;out.push({t:'n',v:ctx.sum/ctx.count});continue}
       if(ln==='prev'||ln==='ans'){if(ctx.prev==null)throw 0;out.push({t:'n',v:ctx.prev});continue}
@@ -969,7 +971,8 @@ function summaryKind(expr,scope){
   const a=x.match(/^\s*[A-Za-z_]\w*\s*=(?!=)(.*)$/);if(a)x=a[1];
   const lab=x.match(/^([^:]*[A-Za-z][^:]*):(.*)$/);if(lab)x=lab[2];
   const has=re=>{for(const m of x.matchAll(re))if(!Object.prototype.hasOwnProperty.call(scope,m[1]))return true;return false};
-  if(has(/\b(total|sum)\b(?!\s*\()/gi))return'total';
+  if(has(/\b(total)\b(?!\s*\()/gi))return'total';
+  if(has(/\b(sum)\b(?!\s*\()/gi))return'sum';
   if(has(/\b(avg|average)\b(?!\s*\()/gi))return'avg';
   return null;
 }
@@ -995,7 +998,8 @@ function evaluate(root){
   EV=new Map();const scope={};
   (function group(n,depth){
     if(depth>80)return;
-    const block=[];let prev=null;
+    /* block: every amount above (for total and avg); seg: amounts since the last sum (for sum) */
+    const block=[];let seg=[],prev=null;
     for(const c of n.children){
       const t=c.text.trim(),mode=calcMode(t);
       let v=null,show=false,count=0,kind=null;
@@ -1007,7 +1011,7 @@ function evaluate(root){
       const fromKids=r=>{v=r.k?r.s:null};
       const fl=eqFlags(t);
       if(fl){
-        const ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,prev};
+        const ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,seg:seg.reduce((p,x)=>p+x,0),prev};
         const r=c.children.length?kids():null;
         if(r&&r.k){fromKids(r);show=true;const nm=fl.expr.match(/^\s*([A-Za-z_]\w*)\s*$/);if(nm&&v!=null)scope[nm[1]]=v}
         else if(!(fl.count&&c.children.length)){
@@ -1026,14 +1030,15 @@ function evaluate(root){
         }
       }
       else{
-        const expr=t,ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,prev};
+        const expr=t,ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,seg:seg.reduce((p,x)=>p+x,0),prev};
         const isDef=ASSIGN.test(expr),sk=summaryKind(expr,scope);
         const r=Calc.line(expr,isDef?scope:Object.assign({},scope),ctx);if(r.k==='val'){v=r.v;show=isDef;kind=sk}
         group(c,depth+1);
       }
       EV.set(c.id,{v,show,count,kind});
       /* a total or average is not counted again by later totals or by the heading above */
-      if(v!=null){if(!kind)block.push(v);prev=v}
+      if(v!=null){if(!kind){block.push(v);seg.push(v)}prev=v}
+      if(kind==='sum')seg=[];
     }
   })(root,0);
 }
@@ -1140,8 +1145,8 @@ function fillChips(els,e,mode){
   if(b){
     if(v==null)b.hidden=true;
     else{b.hidden=false;b.textContent=fmt(v);b.dataset.raw=rawNum(v);
-      b.title=e.kind==='total'?'Total of the items above. Tap to copy':e.kind==='avg'?'Average of the items above. Tap to copy':'Copy result'}
-    b.classList.toggle('tot',v!=null&&e.kind==='total');b.classList.toggle('avgv',v!=null&&e.kind==='avg');
+      b.title=e.kind==='total'?'Total of everything above. Tap to copy':e.kind==='sum'?'Sum of the items since the previous sum. Tap to copy':e.kind==='avg'?'Average of the items above. Tap to copy':'Copy result'}
+    b.classList.toggle('tot',v!=null&&(e.kind==='total'||e.kind==='sum'));b.classList.toggle('avgv',v!=null&&e.kind==='avg');
   }
   const cn=e?e.count:0,nm=e&&!cn&&e.names?e.names:0;
   if(els.c){
