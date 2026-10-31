@@ -427,7 +427,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <dl class="keys">
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
       <dt><code>Fuel =:</code></dt><dd>Total of the items under it, with a count. Add-ons go after the =</dd>
-      <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon). A line like <code>Technical: Bonolo, Jaco</code> counts each name, and <code>101: 1,3,5</code> or <code>301: 1-10</code> counts each number. Counts show in brackets, like (15)</dd>
+      <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon). A line like <code>Technical: Bonolo, Jaco</code> counts each name, and <code>101: 1,3,5</code> or <code>301: 1-10</code> counts each number. Add a comment after a semicolon: <code>101: 1-3; PTU loose</code>. Counts show in brackets, like (15)</dd>
       <dt><code>rate = 850</code></dt><dd>A variable for every bullet below it</dd>
       <dt><code>spent =</code></dt><dd>A one-word name before = keeps the total as a variable</dd>
       <dt><code>sum</code></dt><dd>Adds the items since the previous sum (a subtotal), shown in teal</dd>
@@ -978,10 +978,12 @@ function summaryKind(expr,scope){
 }
 /* What a line under a counted heading ( ... : ) adds to the count:
    "Technical: Bonolo, Jaco, Roderick" is 3, "101: 1,3,5" is 3, "301: 1-10" is 10, "Mixed: 1-3, 7" is 4.
-   Under a counted heading a comma always separates items, so "101: 100,200,300" is 3. */
+   Under a counted heading a comma always separates items, so "101: 100,200,300" is 3.
+   A ; starts a comment that is not counted: "201: 3,5; Buttons not working" is 2. */
 function listCount(t){
   const m=plain(t).match(/^([^:]+):\s*(.+)$/);if(!m)return null;
-  const rest=m[2].trim();
+  /* anything after a ; is a comment: "101: 1-3; PTU loose" counts machines 1-3 */
+  const rest=m[2].split(';')[0].trim();
   const parts=rest.split(',').map(p=>p.trim()).filter(Boolean);if(!parts.length)return null;
   let n=0;
   for(const p of parts){
