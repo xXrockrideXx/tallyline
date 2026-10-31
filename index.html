@@ -16,7 +16,7 @@
 :root{
   --bg:#eef1f0; --panel:#e3e8e6; --surface:#fbfcfb; --ink:#17201d; --muted:#5b6763; --faint:#98a39f;
   --line:#d3dbd8; --ring:#d6dedb; --rule:#e4eae7; --rowfocus:#e6ecea;
-  --accent:#2350c4; --accent-soft:#e1e8fb; --result:#94470b; --result-soft:#f8ead9; --tape:#f6f3ec;
+  --accent:#2350c4; --accent-soft:#e1e8fb; --result:#94470b; --result-soft:#f8ead9; --actual:#6a3fb5; --actual-soft:#ede5fb; --pos:#1c7a3d; --pos-soft:#dcf2e3; --neg:#b3261e; --neg-soft:#fbe4e2; --tape:#f6f3ec;
   --hit:#fbeeb0; --danger:#b3261e;
   --f-title:"Schibsted Grotesk","Segoe UI",system-ui,sans-serif;
   --f-body:"Hanken Grotesk","Segoe UI",system-ui,-apple-system,sans-serif;
@@ -26,12 +26,12 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#111614; --panel:#171d1b; --surface:#161c1a; --ink:#e3ebe8; --muted:#94a19c; --faint:#5f6b67;
   --line:#28312e; --ring:#2e3835; --rule:#1f2725; --rowfocus:#1c2422;
-  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --tape:#1a1f1c;
+  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --actual:#bba3ff; --actual-soft:#2a2244; --pos:#6fd394; --pos-soft:#16301f; --neg:#ff8a80; --neg-soft:#3b1d1b; --tape:#1a1f1c;
   --hit:#4a3f12; --danger:#ff8a80; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#111614; --panel:#171d1b; --surface:#161c1a; --ink:#e3ebe8; --muted:#94a19c; --faint:#5f6b67;
   --line:#28312e; --ring:#2e3835; --rule:#1f2725; --rowfocus:#1c2422;
-  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --tape:#1a1f1c;
+  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --actual:#bba3ff; --actual-soft:#2a2244; --pos:#6fd394; --pos-soft:#16301f; --neg:#ff8a80; --neg-soft:#3b1d1b; --tape:#1a1f1c;
   --hit:#4a3f12; --danger:#ff8a80; color-scheme:dark}
 
 html{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%}
@@ -140,6 +140,11 @@ button{font:inherit;color:inherit}
 .tag:hover{background:var(--accent-soft)}
 .res{font-family:var(--f-mono);font-size:12.5px;line-height:20px;color:var(--result);background:var(--result-soft);border:0;border-radius:5px;padding:0 7px;cursor:copy;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cnt{font-family:var(--f-mono);font-size:11.5px;line-height:20px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 6px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.res.act{color:var(--actual);background:var(--actual-soft)}
+.res.act:hover{background:var(--actual-soft)}
+.res.dif,.res.pct{background:var(--panel);color:var(--muted)}
+.res.dif.pos,.res.pct.pos{color:var(--pos);background:var(--pos-soft)}
+.res.dif.neg,.res.pct.neg{color:var(--neg);background:var(--neg-soft)}
 .zoomres{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-12px 0 20px}
 .zoomres .res{font-size:15px;line-height:26px;padding:0 9px}
 .zoomres .cnt{font-size:13px;line-height:24px}
@@ -148,6 +153,27 @@ button{font:inherit;color:inherit}
 .kids{margin-left:28px;border-left:1px solid var(--line)}
 .node.done>.row .txt{color:var(--faint);text-decoration:line-through}
 .node.done>.row .dot::before{background:var(--faint)}
+.node.sel .row{background:var(--accent-soft)}
+.node.sel>.row{box-shadow:inset 3px 0 0 var(--accent)}
+#list.selecting .txt{cursor:default;-webkit-user-select:none;user-select:none}
+.dot{touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.node.dragging>.row{opacity:.45}
+.dropline{position:fixed;height:3px;border-radius:2px;background:var(--accent);z-index:30;pointer-events:none;box-shadow:0 0 0 2px var(--surface)}
+body.dragmode,body.dragmode *{cursor:grabbing!important;-webkit-user-select:none;user-select:none}
+.trashrow{display:flex;align-items:center;gap:9px;text-align:left;border:0;background:none;border-radius:7px;padding:7px 8px;cursor:pointer;color:var(--faint);font-size:13px;margin-top:6px}
+.trashrow:hover{background:var(--rowfocus);color:var(--ink)}
+.tlist{display:flex;flex-direction:column;gap:2px;margin:6px 0 0}
+.titem{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;flex-wrap:wrap}
+.titem:hover{background:var(--rowfocus)}
+.titem div{flex:1;min-width:140px;display:flex;flex-direction:column;gap:1px}
+.titem b{font-weight:600;font-size:14.5px;word-break:break-word}
+.titem small{color:var(--faint);font-size:12.5px}
+.titem .btn.arm{background:var(--danger);border-color:var(--danger);color:var(--surface)}
+.selbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:22;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:6px;width:max-content;max-width:calc(100vw - 24px);box-sizing:border-box}
+.selbar .scount{font-size:13px;font-weight:600;color:var(--accent);padding:0 8px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.selbar button{height:36px;min-width:36px;border:1px solid var(--line);background:var(--bg);border-radius:8px;display:grid;place-items:center;cursor:pointer;padding:0 9px;font-size:13px}
+.selbar button:hover{border-color:var(--faint)}
+.selbar .sdanger{color:var(--danger)}
 .node.hit>.row .txt{background:var(--hit);border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 .scopebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:-8px 0 16px}
 .ilink{color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;cursor:pointer;border-radius:3px}
@@ -162,6 +188,19 @@ button{font:inherit;color:inherit}
 .gal.n3 .tile:first-child .thumb{aspect-ratio:2/1}
 .gal.n1 .thumb{aspect-ratio:auto;width:auto;max-width:100%;max-height:260px;object-fit:contain;border:1px solid var(--line);border-radius:8px}
 .gal .more{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.52);color:#fff;font:700 24px/1 var(--f-title);letter-spacing:.01em;pointer-events:none}
+.gal .cap{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 12px);box-sizing:border-box;padding:2px 7px;border-radius:5px;background:rgba(0,0,0,.6);color:#fff;font-size:11.5px;line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.gal.n1 .tile{display:inline-block;max-width:100%}
+.vwrap{position:relative;display:inline-block;max-width:100%}
+.vwrap img{display:block}
+.vcap{position:absolute;left:10px;bottom:10px;max-width:calc(100% - 20px);box-sizing:border-box;padding:5px 10px;border-radius:7px;background:rgba(0,0,0,.6);color:#fff;font-size:14px;line-height:1.4;word-break:break-word;pointer-events:none}
+.capfield{display:flex;gap:8px;width:min(520px,100%);align-items:center;align-self:center}
+/* full-screen photo viewer: the photo fills the space left above the controls */
+#imgModal{place-items:stretch;background:rgba(0,0,0,.94);padding:max(12px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+#imgModal .viewer{width:100%;height:100%;max-width:none;max-height:none;display:flex;flex-direction:column;align-items:stretch;gap:10px;min-height:0}
+#imgModal .vwrap{flex:1 1 auto;min-height:0;width:100%;display:block}
+#imgModal .vwrap img{width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;border-radius:0;background:none}
+#imgModal .mrow{flex:none}
+.capfield input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:7px;padding:8px 10px;font:inherit;font-size:14px}
 .imgcount{font-size:13px;color:var(--surface);background:color-mix(in srgb,var(--ink) 70%,transparent);padding:3px 10px;border-radius:99px;font-variant-numeric:tabular-nums}
 .nmark{border:0;background:none;padding:0 3px;cursor:pointer;color:var(--faint);line-height:20px;border-radius:4px;display:inline-grid;place-items:center}
 .nmark:hover{color:var(--accent);background:var(--accent-soft)}
@@ -186,7 +225,7 @@ button{font:inherit;color:inherit}
 .kbar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);gap:4px;justify-content:space-between;
   padding-top:6px;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
 .kbar.kbup{padding-bottom:6px}
-.kbar button{flex:1;height:38px;border:1px solid var(--line);background:var(--bg);border-radius:7px;display:grid;place-items:center;cursor:pointer;padding:0;font-size:12px}
+.kbar button{flex:1;min-width:0;height:38px;border:1px solid var(--line);background:var(--bg);border-radius:7px;display:grid;place-items:center;cursor:pointer;padding:0;font-size:12px}
 
 /* Modals & toast */
 .scrim{position:fixed;inset:0;z-index:40;background:color-mix(in srgb,var(--ink) 35%,transparent);display:grid;place-items:center;padding:16px}
@@ -273,7 +312,12 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <button class="mi" id="expandAll" type="button">Expand all</button>
         <button class="mi" id="collapseAll" type="button">Collapse all</button>
         <div class="msep"></div>
+        <button class="mi" id="dupBtn" type="button">Duplicate</button>
+        <button class="mi" id="nextBtn" type="button">Copy for next month</button>
+        <button class="mi" id="excelBtn" type="button">Copy for Excel</button>
+        <div class="msep"></div>
         <button class="mi" id="imgBtn" type="button">Add image to current item</button>
+        <button class="mi" id="hideCaps" type="button" aria-pressed="false">Hide photo captions</button>
         <div class="msep"></div>
         <button class="mi" id="exportBtn" type="button">Export and backup</button>
         <button class="mi" id="keysBtn" type="button">Help and shortcuts</button>
@@ -289,7 +333,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       </div>
       <div class="crumbs" id="crumbs"></div>
       <h1 class="doctitle" id="title" spellcheck="true"></h1>
-      <div class="zoomres" id="zoomRes" hidden><button class="res" id="zRes" type="button" title="Copy result"></button><span class="cnt" id="zCnt"></span></div>
+      <div class="zoomres" id="zoomRes" hidden><button class="res" id="zRes" type="button" title="Copy result"></button><button class="res act" id="zAct" type="button" title="Actual amount. Tap to copy" hidden></button><button class="res dif" id="zDif" type="button" hidden></button><button class="res pct" id="zPct" type="button" hidden></button><span class="cnt" id="zCnt"></span></div>
       <div class="list" id="list"></div>
       <div class="hint" id="emptyHint" hidden><span>Nothing here yet.</span><button class="btn primary" id="addFirst" type="button">Add an item</button></div>
       <div class="hint" id="noHits" hidden>No items match your search.</div>
@@ -304,9 +348,24 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
   <button type="button" data-k="up" aria-label="Move up"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 8l4-4 4 4M9 4v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <button type="button" data-k="down" aria-label="Move down"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m5 10 4 4 4-4M9 14V3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <button type="button" data-k="done" aria-label="Mark done"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m4 9.5 3.2 3.2L14 5.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-  <button type="button" data-k="note" aria-label="Add note">Note</button>
-  <button type="button" data-k="zoom" aria-label="Zoom in">Zoom</button>
+  <button type="button" data-k="note" aria-label="Add note"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 5h10M4 9h10M4 13h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button type="button" data-k="zoom" aria-label="Zoom in"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="m11.5 11.5 3.5 3.5M6 8h4M8 6v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button type="button" data-k="select" aria-label="Select items"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="3" y="3" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2.4 2.2"/><path d="m6.3 9.2 1.9 1.9 3.6-3.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button type="button" data-k="undo" aria-label="Undo"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M6.5 5 3.5 8l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 8h6.5a4 4 0 0 1 0 8H8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <button type="button" data-k="image" aria-label="Add image"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2.5" y="3.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="6.5" cy="7.5" r="1.3" fill="currentColor"/><path d="m3.5 13 4-4 3 3 2-2 2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+</div>
+
+<div class="selbar" id="selBar" hidden role="toolbar" aria-label="Selected items">
+  <span class="scount" id="selCount"></span>
+  <button type="button" data-s="copy">Copy</button>
+  <button type="button" data-s="cut">Cut</button>
+  <button type="button" data-s="outdent" aria-label="Outdent"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M8 5 4 9l4 4M4 9h11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button type="button" data-s="indent" aria-label="Indent"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m10 5 4 4-4 4M14 9H3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button type="button" data-s="up" aria-label="Move up"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 8l4-4 4 4M9 4v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button type="button" data-s="down" aria-label="Move down"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m5 10 4 4 4-4M9 14V3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button type="button" data-s="done" aria-label="Mark done"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m4 9.5 3.2 3.2L14 5.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button type="button" data-s="delete" class="sdanger">Delete</button>
+  <button type="button" data-s="clear" aria-label="Stop selecting"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m5 5 8 8M13 5l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 </div>
 
 <div class="scrim" id="exportModal" hidden>
@@ -321,6 +380,15 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <h3>Restore from a backup</h3>
     <textarea id="imTa" aria-label="Paste a backup" placeholder="Paste a Tallyline backup here"></textarea>
     <div class="mrow"><button class="btn" id="imBtn" type="button">Add documents from backup</button><span class="err" id="imErr"></span></div>
+    <div class="mrow" style="justify-content:flex-end"><button class="btn" data-close type="button">Close</button></div>
+  </div>
+</div>
+
+<div class="scrim" id="trashModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="trH">
+    <h2 id="trH">Recently deleted</h2>
+    <p class="mtext">Deleted documents are kept here on this device for 30 days, then removed.</p>
+    <div class="tlist" id="trashList"></div>
     <div class="mrow" style="justify-content:flex-end"><button class="btn" data-close type="button">Close</button></div>
   </div>
 </div>
@@ -342,17 +410,26 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>⌫</kbd></dt><dd>Delete the item and everything under it</dd>
       <dt><kbd>#</kbd> or <kbd>@</kbd></dt><dd>Pick from tags you've used before</dd>
       <dt><kbd>[</kbd><kbd>[</kbd></dt><dd>Link to another item or document</dd>
-      <dt>Paste or drop</dt><dd>An image onto an item to add it</dd>
+      <dt>Paste or drop</dt><dd>An image onto an item to add it. Tap a photo to add a caption</dd>
+      <dt><kbd>Shift</kbd>+<kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Select several items (at the start or end of a line). Shift-click or drag across items also works</dd>
+      <dt><kbd>Ctrl</kbd>+<kbd>A</kbd> twice</dt><dd>Select every item on the page</dd>
+      <dt>With items selected</dt><dd>Ctrl+C / Ctrl+X copy or cut them, Tab moves them in, Delete removes them, Esc stops selecting</dd>
+      <dt>Drag a bullet's dot</dt><dd>Move the item. On the phone, hold the dot for a moment first</dd>
+      <dt><kbd>@</kbd>today</dt><dd>Becomes today's date as a tag</dd>
       <dt><kbd>/</kbd></dt><dd>Search</dd>
       <dt><kbd>Esc</kbd></dt><dd>Stop editing, clear search</dd>
     </dl>
     <h3>Maths in bullets</h3>
     <dl class="keys">
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
-      <dt><code>Fuel :=</code></dt><dd>Total of the items under it, with a count</dd>
+      <dt><code>Fuel =:</code></dt><dd>Total of the items under it, with a count. Add-ons go after the =</dd>
       <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon)</dd>
+      <dt><code>Week 1: 850;1200</code></dt><dd>Budget;actual. Totals show the budget, then the actual in green</dd>
+      <dt><code>Week 2: 850;;</code></dt><dd>Actual is the same as the budget</dd>
+      <dt>Green / red</dt><dd>What is left in the budget, or how much it went over</dd>
+      <dt><code>Sales: 100;120 =%</code></dt><dd>Change from first to second, with the percentage. =:% adds the count too</dd>
       <dt><code>rate = 850</code></dt><dd>A variable for every bullet below it</dd>
-      <dt><code>spent :=</code></dt><dd>A one-word name before := keeps the total as a variable</dd>
+      <dt><code>spent =</code></dt><dd>A one-word name before = keeps the total as a variable</dd>
       <dt><code>total · avg</code></dt><dd>Adds or averages the items above it at the same level</dd>
       <dt><code>prev</code></dt><dd>The value of the item just above it</dd>
       <dt><code>Rent: 6500</code></dt><dd>Words before a colon are a label</dd>
@@ -365,10 +442,11 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
   </div>
 </div>
 
-<input type="file" id="imgInput" accept="image/*" hidden>
+<input type="file" id="imgInput" accept="image/*" multiple hidden>
 <div class="scrim" id="imgModal" hidden>
   <div class="viewer" role="dialog" aria-modal="true" aria-label="Image">
-    <img id="imgBig" alt="Image">
+    <div class="vwrap"><img id="imgBig" alt="Image"><span class="vcap" id="imgCap" hidden></span></div>
+    <div class="capfield"><input id="capInput" type="text" maxlength="140" placeholder="Add a caption" aria-label="Caption" autocomplete="off"><button class="btn" id="capToggle" type="button" aria-pressed="true">Captions on</button></div>
     <div class="mrow" id="imgNav" style="justify-content:center;margin:0"><button class="btn" id="imgPrev" type="button" aria-label="Previous image">‹ Previous</button><span class="imgcount" id="imgCount"></span><button class="btn" id="imgNext" type="button" aria-label="Next image">Next ›</button></div>
     <div class="mrow" style="justify-content:center;margin:0"><button class="btn" id="imgRemove" type="button">Remove from item</button><button class="btn primary" data-close type="button">Close</button></div>
   </div>
@@ -548,7 +626,7 @@ function fmt(v){
   if(a!==0&&(a>=1e15||a<1e-6))return v.toExponential(4).replace('-','−');
   const s=String(Math.round(v*1e6)/1e6);
   let [i,d]=s.split('.');const neg=i[0]==='-';if(neg)i=i.slice(1);
-  i=i.replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+  i=i.replace(/\B(?=(\d{3})+(?!\d))/g,',');
   return (neg?'−':'')+i+(d?'.'+d:'');
 }
 const rawNum=v=>isFinite(v)?String(Math.round(v*1e6)/1e6):String(v);
@@ -564,27 +642,93 @@ function seed(){
       N("Click an item's dot to zoom into it; use the path above the title to zoom back out"),
       N('Ctrl+Enter marks an item done'),
       N('Shift+Enter adds a note under an item',[],{note:'Notes like this one sit quietly under the item.'}),
-      N('Format with **bold**, *italic*, ~~strike~~, `code` and #tags (click a tag to filter)')
+      N('Format with **bold**, *italic*, ~~strike~~, `code` and #tags (click a tag to filter)'),
+      ...basicsExtra(N)
     ]),
-    N('Inline maths: end with = for the value, := for the value and item count, or a spaced : for the count only',[
+    N('Quick maths: end an item with = to see the answer',[
       N('1450 * 12 ='),
-      N('rate = 850'),
-      N('Fuel: rate * 4 ='),
-      N('Fuel for the month :=',[N('Week 1: R850'),N('Week 2: R920'),N('Week 3: R780'),N('Week 4: R900')]),
-      N('VAT on R2,400: 2400 * 15% ='),
-      N('Bulbs: 3 * R89.99 + 10% =')
+      N('Fuel for the month =:',[N('Week 1: R850'),N('Week 2: R920'),N('Week 3: R780'),N('Week 4: R900')],{note:'=: adds up the items underneath and counts them.'})
     ]),
-    N('Open the Month-end budget example to see variables, totals and prev working together'),
-    N('Weekend jobs #todo :',[N('Rotate tyres',[],{done:true}),N('Order printer toner #todo'),N('Book car service')],{})
+    N('Weekend jobs #todo :',[N('Rotate tyres',[],{done:true}),N('Order printer toner #todo'),N('Book car service')],{}),
+    N(MORE_POINTER)
   ]}};
+  const more=moreDoc(N);
   const budget={id:uid(),type:'outline',title:'Month-end budget (example)',zoom:'root',root:{id:'root',text:'',children:[
     N('Income',[N('salary = 28,500'),N('side = 3,200'),N('income = salary + side')]),
-    N('spent :=',[N('Bond: 9800'),N('Car: 4150'),N('Groceries: 3600'),N('Fuel: 4 * 850'),N('Electricity: 1200 + 10%'),N('Insurance: 1850')],{note:'Naming a := total keeps it as a variable for the bullets below.'}),
+    N('spent =:',[N('Bond: 9800'),N('Car: 4150'),N('Groceries: 3600'),N('Fuel: 4 * 850'),N('Electricity: 1200 + 10%'),N('Insurance: 1850')],{note:'Naming a total (a one-word name before the =) keeps it as a variable for the bullets below.'}),
     N('left = income - spent'),
     N('Put away: 20% of left ='),
     N('After saving: left - prev =')
   ]}};
-  return{v:3,docs:[outline,budget],activeId:outline.id,settings:{hideDone:false}};
+  return{v:8,docs:[outline,more,budget],activeId:outline.id,settings:{hideDone:false}};
+}
+/* newer parts of the Getting started example; also added to existing copies (see load) */
+function basicsExtra(N){
+  return[
+    N('Press Enter on an empty item to move it up a level'),
+    N('On the phone, tap into an item for the toolbar above the keyboard: indent, move, done, note, zoom, select, undo and photos'),
+    N('Select several items with Shift+↑↓, Shift-click or by dragging across them. On the phone, use the Select button'),
+    N("Drag a bullet's dot to move the item. On the phone, hold the dot for a moment first")
+  ];
+}
+const MORE_POINTER='When this feels familiar, open “More things to try (example)” from ☰ for budgets, links, photos and more';
+function moreMaths(N){
+  return N('More maths: add : for the item count (=:), % for the change (=%), or both (=:%). A spaced : on its own shows the count only',[
+    N('rate = 850'),
+    N('Fuel: rate * 4 ='),
+    N('VAT on R2,400: 2400 * 15% ='),
+    N('Bulbs: 3 * R89.99 + 10% =')
+  ]);
+}
+function handyExtras(N){
+  return N('Handy extras',[
+    N('⋯ → Duplicate makes an exact copy of the open document'),
+    N('⋯ → Copy for next month makes a copy with the budgets kept and the actuals cleared'),
+    N('⋯ → Copy for Excel copies the amounts as columns, ready to paste into a spreadsheet'),
+    N('Deleted documents wait in Recently deleted, at the bottom of ☰, for 30 days'),
+    N("Type @ followed by the word today to add today's date as a tag"),
+    N('Open the Month-end budget example to see variables, totals and prev working together')
+  ]);
+}
+function moreDoc(N){
+  return{id:uid(),type:'outline',title:'More things to try (example)',zoom:'root',root:{id:'root',text:'',children:[
+    N('More examples to try out. Edit or delete anything here.'),
+    moreMaths(N),budgetSection(N),...newSections(N),handyExtras(N)
+  ]}};
+}
+function newSections(N){
+  return[
+    N('Tags, links and search',[
+      N('Type # or @ and pick from the tags you have used before #todo'),
+      N('Type [[ to link to another item. Tap the link to jump there: [[Groceries =:]]'),
+      N('Search ( / ) looks in this outline. Switch to All documents to search everything, notes included'),
+      N('⋯ menu: Hide notes, Hide done items and Hide photo captions keep the page tidy')
+    ]),
+    N('Photos',[
+      N('Tap the photo button on the toolbar, or paste or drop images onto an item. You can pick several at once'),
+      N('Up to four photos show as a square. With more, the last one shows +2, +3 and so on'),
+      N('Tap a photo to see it full screen, swipe between photos and add a caption')
+    ]),
+    N('Documents and folders',[
+      N('☰ shows your documents. + Folder makes a folder, and the + beside a folder adds an outline to it'),
+      N('⋯ → Folder moves the open document into a folder'),
+      N('Tap the status line at the bottom of the documents list to set up GitHub sync between your PC and phone')
+    ])
+  ];
+}
+/* the budget vs actual section of the Getting started example */
+function budgetSection(N){
+  return N('Budget vs actual: write the budget, a semicolon, then what you actually spent',[
+    N('Groceries =:',[N('Week 1: R900;R1,150'),N('Week 2: R900;;'),N('Week 3: R900;R860'),N('Week 4: R900')],
+      {note:'Orange is the budget, purple is what was actually spent, and green shows what is left (red if over budget). Week 2 ends with ;; because the actual matched the budget. Week 4 has no actual yet, so it only counts towards the budget.'}),
+    N('A single item works too, if it ends with an equals sign',[N('New tyres: 2 * 1,450;3,100 =')]),
+    N('Spending that was never budgeted: leave the budget empty',[N('Car wash: ;120 =')]),
+    N('Percentage change: end with =% to compare a start and end value, or =:% on a total',[
+      N('Sales: 100;120 =%'),
+      N('Fuel price per litre: 21.43;23.10 =%'),
+      N('Monthly totals =:%',[N('January: 18,400;19,950'),N('February: 17,900;16,800')])
+    ])
+  ]);
 }
 function valid(d){return d&&typeof d==='object'&&(d.type==='calc'?typeof d.text==='string':(d.type==='outline'&&d.root&&Array.isArray(d.root.children)))}
 function load(){
@@ -602,7 +746,71 @@ function load(){
       w(k)})})(d.root)});
     store.v=2;
   }
+  if(!(store.v>=4)){
+    /* add the budget vs actual section to an existing Getting started example, once */
+    const gs=store.docs.find(d=>d.root&&/^getting started/i.test(d.title||''));
+    if(gs&&!JSON.stringify(gs.root).includes('Budget vs actual')){
+      const N=(t,kids,extra)=>mk(t,Object.assign({children:kids||[]},extra||{}));
+      const kids=gs.root.children,at=kids.findIndex(k=>/^inline maths/i.test(k.text));
+      kids.splice(at>=0?at+1:kids.length,0,budgetSection(N));
+    }
+    store.v=4;
+  }
+  if(!(store.v>=5)){
+    /* bring an existing Getting started example up to date, once: replace its budget section and add the newer parts */
+    const gs=store.docs.find(d=>d.root&&/^getting started/i.test(d.title||''));
+    if(gs){
+      const N=(t,kids,extra)=>mk(t,Object.assign({children:kids||[]},extra||{}));
+      const kids=gs.root.children,head=t=>(t||'').trim().toLowerCase();
+      const bi=kids.findIndex(k=>/^budget vs actual/i.test(k.text));
+      if(bi>=0)kids.splice(bi,1,budgetSection(N));
+      const basics=kids.find(k=>/^outlining basics/i.test(k.text));
+      if(basics)basicsExtra(N).forEach(x=>{if(!basics.children.some(c=>head(c.text)===head(x.text)))basics.children.push(x)});
+      const anchor=kids.findIndex(k=>/^budget vs actual/i.test(k.text));
+      let at=anchor>=0?anchor+1:kids.length;
+      newSections(N).forEach(sec=>{if(!kids.some(k=>head(k.text)===head(sec.text)))kids.splice(at++,0,sec)});
+    }
+    store.v=5;
+  }
+  if(!(store.v>=6)){
+    /* refresh the example's budget section once for the colours, differences and =% */
+    const gs=store.docs.find(d=>d.root&&/^getting started/i.test(d.title||''));
+    if(gs){const N=(t,kids,extra)=>mk(t,Object.assign({children:kids||[]},extra||{}));const k=gs.root.children,bi=k.findIndex(x=>/^budget vs actual/i.test(x.text));if(bi>=0)k.splice(bi,1,budgetSection(N))}
+    store.v=6;
+  }
+  if(!(store.v>=7)){
+    /* := became =: (the = comes first, then what to add) */
+    const OLD_HEAD='Inline maths: end with = for the value, := for the value and item count, or a spaced : for the count only';
+    const NEW_HEAD='Inline maths: end with = for the value. Add : for the item count (=:), % for the change (=%), or both (=:%). A spaced : on its own shows the count only';
+    store.docs.forEach(d=>{if(!d.root)return;(function w(n){n.children.forEach(k=>{
+      if(k.text===OLD_HEAD)k.text=NEW_HEAD;
+      k.text=k.text.replace(/\s*:=(%?)\s*$/,' =:$1').replace(/\[\[([^\[\]]*?)\s*:=(%?)\]\]/g,'[[$1 =:$2]]');
+      if(k.note)k.note=k.note.replace('Naming a := total keeps it as a variable','Naming a total (a one-word name before the =) keeps it as a variable');
+      w(k)})})(d.root)});
+    store.v=7;
+  }
+  if(!(store.v>=8)){
+    /* split an existing Getting started example: the longer sections move to "More things to try (example)" */
+    const gs=store.docs.find(d=>d.root&&/^getting started/i.test(d.title||''));
+    if(gs&&!store.docs.some(d=>/^more things to try/i.test(d.title||''))){
+      const N=(t,kids,extra)=>mk(t,Object.assign({children:kids||[]},extra||{}));
+      const k=gs.root.children,head=t=>(t||'').trim().toLowerCase();
+      const moving=/^(budget vs actual|tags, links and search|photos|documents and folders)$|^budget vs actual/i;
+      const moved=k.filter(x=>moving.test(x.text.trim()));
+      gs.root.children=k.filter(x=>!moved.includes(x));
+      const basics=gs.root.children.find(x=>/^outlining basics/i.test(x.text));
+      if(basics){const ph=basics.children.find(c=>/^On the phone, tap into an item for the toolbar above the keyboard/.test(c.text));if(ph)ph.text=basicsExtra(N)[1].text}
+      if(basics)basicsExtra(N).forEach(x=>{if(!basics.children.some(c=>head(c.text)===head(x.text)))basics.children.push(x)});
+      if(!gs.root.children.some(x=>x.text===MORE_POINTER))gs.root.children.push(N(MORE_POINTER));
+      const md=moreDoc(N);
+      if(moved.length){md.root.children=[md.root.children[0],...moved,handyExtras(N)]}
+      if(gs.folder)md.folder=gs.folder;
+      store.docs.splice(store.docs.indexOf(gs)+1,0,md);
+    }
+    store.v=8;
+  }
   if(!store.docs.some(d=>d.id===store.activeId))store.activeId=store.docs[0].id;
+  store.trash=(store.trash||[]).filter(t=>t&&t.doc&&Date.now()-t.at<30*864e5);
   ensureFolders();
 }
 function saveNow(){
@@ -622,7 +830,7 @@ function fmtText(t){
   if(!t)return'';
   const codes=[],links=[],imgs=[],wl=[];
   let s=esc(t).replace(/`([^`]+)`/g,(m,c)=>{codes.push(c);return'\u0000'+(codes.length-1)+'\u0000'});
-  s=s.replace(/!\[[^\]]*\]\(img:([\w.-]+)\)/g,(m,k)=>{imgs.push(k);return'\u0002'+(imgs.length-1)+'\u0002'});
+  s=s.replace(/!\[([^\]]*)\]\(img:([\w.-]+)\)/g,(m,c,k)=>{imgs.push({k,c:c.trim()});return'\u0002'+(imgs.length-1)+'\u0002'});
   s=s.replace(/\[\[([^\[\]]+?)\]\]/g,(m,t)=>{wl.push(t);return'\u0003'+(wl.length-1)+'\u0003'});
   s=s.replace(/\bhttps?:\/\/[^\s<]*[^\s<.,;:!?)'"]/g,u=>{links.push(u);return'\u0001'+(links.length-1)+'\u0001'});
   s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
@@ -635,8 +843,9 @@ function fmtText(t){
   s=s.replace(/\s*\u0002\d+\u0002/g,'');
   if(imgs.length){
     const extra=imgs.length-4;
-    s+=`<span class="gal n${Math.min(imgs.length,4)}" contenteditable="false">`+imgs.slice(0,4).map((k,i)=>
-      `<span class="tile"><img class="thumb" data-img="${k}" alt="Image ${i+1} of ${imgs.length}">${i===3&&extra>0?`<span class="more">+${extra}</span>`:''}</span>`).join('')+'</span>';
+    s+=`<span class="gal n${Math.min(imgs.length,4)}" contenteditable="false">`+imgs.slice(0,4).map((x,i)=>{
+      const more=i===3&&extra>0,cap=x.c&&!more&&!(store.settings&&store.settings.hideCaps)?`<span class="cap">${x.c}</span>`:'';
+      return`<span class="tile"><img class="thumb" data-img="${x.k}" alt="${x.c||'Image '+(i+1)+' of '+imgs.length}">${cap}${more?`<span class="more">+${extra}</span>`:''}</span>`}).join('')+'</span>';
   }
   return s;
 }
@@ -704,10 +913,36 @@ function undo(redo){
 }
 
 /* inline maths: one pass through the outline in document order */
-function calcMode(t){t=(t||'').trim();if(/:=$/.test(t))return'both';if(/\s:$/.test(t))return'count';if(/=$/.test(t)&&!/[=<>!]=$/.test(t))return'value';return null}
-function isCalcText(t){const m=calcMode(t);return m==='both'||m==='value'}
+/* an item ending in = is worked out; letters after the = add more:  =: item count,  =% change and percentage,  =:% both.
+   The older :=  and :=% still work. A spaced  :  on its own shows the count only. */
+const EQ_END=/(?:=([:%]*)|:=(%?))$/;
+function eqFlags(t){
+  t=(t||'').trim();const m=t.match(EQ_END);if(!m)return null;
+  const before=t.slice(0,m.index);
+  if(m[1]!==undefined&&/[=<>!]$/.test(before))return null;
+  const f=m[1]!==undefined?m[1]:':'+m[2];
+  return{count:f.includes(':'),pct:f.includes('%'),expr:before};
+}
+function calcMode(t){if(eqFlags(t))return'value';if(/\s:$/.test((t||'').trim()))return'count';return null}
+const isPct=t=>{const f=eqFlags(t);return!!(f&&f.pct)};
+function isCalcText(t){return calcMode(t)==='value'}
 const ASSIGN=/^\s*([A-Za-z_]\w*)\s*=(?!=)\s*\S/;
 let EV=new Map();
+/* budget;actual pairs, e.g. "Week 1: R850;R1200" */
+function dualLine(expr,scope,ctx){
+  if(!expr.includes(';'))return null;
+  let x=expr.replace(/\/\/.*$/,'');
+  const nm=x.match(/^\s*([A-Za-z_]\w*)\s*=(?!=)(.*)$/);if(nm)x=nm[2];
+  const lab=x.match(/^([^:;]*[A-Za-z][^:;]*):(.*)$/);if(lab)x=lab[2];
+  const ev=p=>{if(!p.trim())return null;const r=Calc.line(p,Object.assign({},scope),ctx);return r.k==='val'?r.v:undefined};
+  /* "R850;;" means the actual is the same as the budget */
+  if(/;;\s*$/.test(x)){const same=x.replace(/;;\s*$/,'');if(same.includes(';'))return null;const v=ev(same);return v==null?null:{b:v,a:v,name:nm&&nm[1]}}
+  const parts=x.split(';');if(parts.length!==2)return null;
+  const b=ev(parts[0]),a=ev(parts[1]);
+  if(b===undefined||a===undefined||(b==null&&a==null))return null;
+  /* no budget means a budget of 0, so unbudgeted spending shows as over */
+  return{b:b==null?0:b,a,name:nm&&nm[1]};
+}
 function evaluate(root){
   EV=new Map();const scope={};
   (function group(n,depth){
@@ -715,22 +950,34 @@ function evaluate(root){
     const block=[];let prev=null;
     for(const c of n.children){
       const t=c.text.trim(),mode=calcMode(t);
-      let v=null,show=false,count=0;
-      const kids=()=>{group(c,depth+1);let s=0,k=0;for(const x of c.children){const e=EV.get(x.id);if(e&&e.v!=null){s+=e.v;k++}}return{s,k}};
-      if(mode==='both'){
-        const r=kids();v=r.k?r.s:null;count=r.k;show=true;
-        const nm=t.match(/^([A-Za-z_]\w*)\s*:=$/);if(nm&&v!=null)scope[nm[1]]=v;
+      let v=null,a=null,dual=false,show=false,count=0;
+      const kids=()=>{
+        group(c,depth+1);let s=0,k=0,sa=0,any=false;
+        for(const x of c.children){const e=EV.get(x.id);if(!e)continue;
+          if(e.v!=null)s+=e.v;if(e.a!=null)sa+=e.a;if(e.v!=null||e.a!=null)k++;if(e.dual)any=true}
+        return{s,k,sa,any};
+      };
+      const fromKids=r=>{v=r.k?r.s:null;if(r.any){dual=true;a=r.sa;if(v==null)v=0}};
+      const fl=eqFlags(t);
+      if(fl){
+        const ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,prev};
+        const r=c.children.length?kids():null;
+        if(r&&r.k){fromKids(r);show=true;const nm=fl.expr.match(/^\s*([A-Za-z_]\w*)\s*$/);if(nm&&v!=null)scope[nm[1]]=v}
+        else if(!(fl.count&&c.children.length)){
+          const dl=dualLine(fl.expr,scope,ctx);
+          if(dl){dual=true;v=dl.b;a=dl.a;show=true;if(dl.name&&v!=null)scope[dl.name]=v}
+          else{const isDef=ASSIGN.test(fl.expr);const q=Calc.line(fl.expr,isDef?scope:Object.assign({},scope),ctx);if(q.k==='val'){v=q.v;show=true}}
+        }
+        if(fl.count)count=r?r.k:0;
       }else if(mode==='count'){group(c,depth+1);count=c.children.filter(x=>plain(x.text).trim()).length}
       else{
-        const expr=mode==='value'?t.slice(0,-1):t,isDef=ASSIGN.test(expr);
-        const r=Calc.line(expr,isDef?scope:Object.assign({},scope),{sum:block.reduce((a,x)=>a+x,0),count:block.length,prev});
-        if(r.k==='val'){v=r.v;show=mode==='value'||isDef}
-        if(mode==='value'&&v==null&&c.children.length){
-          const k=kids();
-          if(k.k){v=k.s;show=true;const nm=t.match(/^([A-Za-z_]\w*)\s*=$/);if(nm)scope[nm[1]]=v}
-        }else group(c,depth+1);
+        const expr=t,ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,prev};
+        const dl=dualLine(expr,scope,ctx);
+        if(dl){dual=true;v=dl.b;a=dl.a;if(dl.name&&v!=null)scope[dl.name]=v}
+        else{const isDef=ASSIGN.test(expr);const r=Calc.line(expr,isDef?scope:Object.assign({},scope),ctx);if(r.k==='val'){v=r.v;show=isDef}}
+        group(c,depth+1);
       }
-      EV.set(c.id,{v,show,count});
+      EV.set(c.id,{v,a,dual,show,count,pct:isPct(t)});
       if(v!=null){block.push(v);prev=v}
     }
   })(root,0);
@@ -750,6 +997,43 @@ function calcToRoot(text){
 }
 function calcToOutline(d){const o={id:d.id||uid(),type:'outline',title:d.title||'',zoom:'root',root:calcToRoot(d.text)};if(d.gh)o.gh=d.gh;return o}
 
+/* ---------- Plain-text outline format (files, copy and paste) ---------- */
+function outlineToText(root){
+  const out=[];
+  (function w(n,depth){
+    n.children.forEach(c=>{
+      const pad='  '.repeat(depth);
+      out.push(pad+(c.collapsed&&c.children.length?'+ ':'- ')+(c.done?'[x] ':'')+c.text);
+      if(c.note)c.note.split('\n').forEach(l=>out.push(l?pad+'  '+l:''));
+      w(c,depth+1);
+    });
+  })(root,0);
+  return out.join('\n')+'\n';
+}
+function textToOutline(text){
+  const root={id:'root',text:'',children:[]};
+  const stack=[{depth:-1,node:root}];let last=null,lastDepth=0;
+  text.replace(/\r/g,'').split('\n').forEach(line=>{
+    const raw=line.replace(/^\t+/,t=>'  '.repeat(t.length));
+    const m=raw.match(/^( *)([-+*•])(?: (\[[xX ]\] )?(.*))?$/);
+    if(m){
+      const depth=Math.floor(m[1].length/2);
+      const n=mk(m[4]||'');
+      if(m[2]==='+')n.collapsed=true;
+      if(m[3]&&/x/i.test(m[3]))n.done=true;
+      while(stack.length>1&&stack[stack.length-1].depth>=depth)stack.pop();
+      stack[stack.length-1].node.children.push(n);stack.push({depth,node:n});
+      last=n;lastDepth=depth;return;
+    }
+    if(!last){if(raw.trim()){const n=mk(raw.trim());root.children.push(n);stack.length=1;stack.push({depth:0,node:n});last=n;lastDepth=0}return}
+    const cut=(lastDepth+1)*2;
+    const s=raw.slice(0,cut).trim()===''?raw.slice(cut):raw.trim();
+    last.note=last.note==null?s:last.note+'\n'+s;
+  });
+  (function w(n){n.children.forEach(c=>{if(c.note!=null){c.note=c.note.replace(/^\n+|\n+$/g,'');if(!c.note)delete c.note}w(c)})})(root);
+  if(!root.children.length)root.children.push(mk(''));
+  return root;
+}
 /* ---------- Outline rendering ---------- */
 const list=$('list'),titleEl=$('title');
 const CHEV='<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.2 1.8 6.6 5 3.2 8.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -774,8 +1058,11 @@ function nodeEl(n,q,focus){
   const txt=document.createElement('div');txt.className='txt';txt.dataset.id=n.id;editable(txt);
   if(focus&&focus.id===n.id&&!focus.note){txt.textContent=n.text;txt.dataset.raw='1'}else txt.innerHTML=fmtText(n.text);
   const res=document.createElement('button');res.type='button';res.className='res';res.dataset.id=n.id;res.tabIndex=-1;res.hidden=true;res.title='Copy result';
+  const act=document.createElement('button');act.type='button';act.className='res act';act.dataset.id=n.id;act.tabIndex=-1;act.hidden=true;act.title='Actual amount. Tap to copy';
+  const dif=document.createElement('button');dif.type='button';dif.className='res dif';dif.dataset.id=n.id;dif.tabIndex=-1;dif.hidden=true;
+  const pc=document.createElement('button');pc.type='button';pc.className='res pct';pc.dataset.id=n.id;pc.tabIndex=-1;pc.hidden=true;
   const cnt=document.createElement('span');cnt.className='cnt';cnt.dataset.id=n.id;cnt.hidden=true;
-  line.append(txt,res,cnt);body.append(line);
+  line.append(txt,res,act,dif,pc,cnt);body.append(line);
   const editingNote=focus&&focus.note&&focus.id===n.id;
   if(store.settings.hideNotes&&n.note&&!editingNote){
     const nm=document.createElement('button');nm.type='button';nm.className='nmark';nm.dataset.id=n.id;nm.tabIndex=-1;nm.title='Show note';nm.setAttribute('aria-label','Show note');
@@ -793,22 +1080,36 @@ function nodeEl(n,q,focus){
   }
   return wrap;
 }
+/* fills one row of chips: budget (orange), actual (purple), difference and % change (green or red), item count */
+const signed=(x,suffix)=>(x>0?'+':'')+fmt(x)+(suffix||'');
+function fillChips(els,e,mode){
+  const on=!!(e&&e.show),dual=on&&e.dual;
+  const set=(el,v,text,title)=>{if(!el)return;if(v==null){el.hidden=true;return}el.hidden=false;el.textContent=text==null?fmt(v):text;el.dataset.raw=rawNum(v);if(title)el.title=title};
+  set(els.b,on?e.v:null,null,dual?(e.pct?'First amount. Tap to copy':'Budget. Tap to copy'):'Copy result');
+  set(els.a,dual?e.a:null,null,e&&e.pct?'Second amount. Tap to copy':'Actual. Tap to copy');
+  let d=null,p=null;
+  if(dual&&e.v!=null&&e.a!=null){
+    d=e.pct?e.a-e.v:e.v-e.a;
+    if(e.pct&&e.v!==0)p=Math.round(d/Math.abs(e.v)*1000)/10;
+  }
+  const tone=(el,x)=>{if(!el)return;el.classList.toggle('pos',x>0);el.classList.toggle('neg',x<0)};
+  set(els.d,d,d==null?null:signed(d),d==null?'':e.pct?'Change from the first amount to the second':(d>=0?'Left in the budget':'Over budget'));tone(els.d,d);
+  set(els.p,p,p==null?null:signed(p,'%'),'Percentage change');tone(els.p,p);
+  const cn=e?e.count:0;
+  if(els.c){if(cn){els.c.hidden=false;els.c.textContent=cn+(cn===1?' item':' items');els.c.title=mode==='count'?'Items directly under this one, not counting empty ones':'Items under this one that have an amount'}else els.c.hidden=true}
+  return on&&e.v!=null||dual||!!cn;
+}
 function refreshResults(){
   evaluate(cur().root);
-  list.querySelectorAll('.res').forEach(r=>{
-    const n=node(r.dataset.id),e=EV.get(r.dataset.id);
-    const v=e&&e.show?e.v:null;
-    if(v!=null){r.hidden=false;r.textContent=fmt(v);r.dataset.raw=rawNum(v)}else r.hidden=true;
-    const c=r.nextElementSibling;
-    const mode=n?calcMode(n.text):null,cn=e?e.count:0;
-    if(c&&cn){c.hidden=false;c.textContent=cn+(cn===1?' item':' items');c.title=mode==='both'?'Items under this one that have an amount':'Items directly under this one, not counting empty ones'}else if(c)c.hidden=true;
+  list.querySelectorAll('.line').forEach(line=>{
+    const t=line.querySelector('.txt');if(!t)return;
+    const id=t.dataset.id,n=node(id);
+    fillChips({b:line.querySelector('.res:not(.act):not(.dif):not(.pct)'),a:line.querySelector('.res.act'),d:line.querySelector('.res.dif'),p:line.querySelector('.res.pct'),c:line.querySelector('.cnt')},EV.get(id),n?calcMode(n.text):null);
   });
-  /* when zoomed in, the bullet shown as the heading keeps its value and count */
-  const zd=cur(),ze=zd.zoom!=='root'?EV.get(zd.zoom):null,zv=ze&&ze.show?ze.v:null,zc=ze?ze.count:0;
-  const zb=$('zRes'),zn=$('zCnt');
-  zb.hidden=zv==null;if(zv!=null){zb.textContent=fmt(zv);zb.dataset.raw=rawNum(zv)}
-  zn.hidden=!zc;zn.textContent=zc+(zc===1?' item':' items');
-  $('zoomRes').hidden=zv==null&&!zc;
+  /* when zoomed in, the bullet shown as the heading keeps its values and count */
+  const zd=cur(),zn=zd.zoom!=='root'?node(zd.zoom):null,ze=zn?EV.get(zd.zoom):null;
+  const anyZ=fillChips({b:$('zRes'),a:$('zAct'),d:$('zDif'),p:$('zPct'),c:$('zCnt')},ze,zn?calcMode(zn.text):null);
+  $('zoomRes').hidden=!anyZ;
 }
 function renderOutline(opts){
   opts=opts||{};
@@ -845,7 +1146,7 @@ function renderOutline(opts){
   list.append(frag);
   $('emptyHint').hidden=zoom.children.length>0||!!q;
   $('noHits').hidden=!(q&&!list.childElementCount);
-  refreshResults();hydrateImgs(list);
+  refreshResults();hydrateImgs(list);paintSel();
   if(focus){
     const el=list.querySelector((focus.note?'.note':'.txt')+'[data-id="'+focus.id+'"]');
     if(el){el.focus();const L=el.textContent.length;setCaret(el,focus.pos==null?L:Math.min(focus.pos,L),focus.end==null?null:Math.min(focus.end,L))}
@@ -872,6 +1173,135 @@ const act={
     op(()=>{const[,s,k]=sib(id);s.splice(k,1)});reindex(cur());renderOutline({focus:tid&&idx.has(tid)?{id:tid}:null})}
 };
 function addChildOfZoom(){const d=cur();reindex(d);const z=node(d.zoom);const nn=mk('');op(()=>z.children.push(nn));renderOutline({focus:{id:nn.id,pos:0}})}
+
+/* ---------- Selecting several items ----------
+   A selection is always a run of neighbouring items under one parent; their sub-items come along. */
+let sel=null;
+const selBar=$('selBar');
+function pathUp(id){const z=cur().zoom,p=[id];let x=par(id);while(x){p.push(x.id);if(x.id===z)break;x=par(x.id)}return p}
+function selIds(){
+  if(!sel)return[];
+  if(!idx.has(sel.anchor)||!idx.has(sel.focus)){sel=null;return[]}
+  const A=pathUp(sel.anchor),F=pathUp(sel.focus),Fs=new Set(F);
+  const li=A.findIndex(x=>Fs.has(x));if(li<0)return[];
+  const L=A[li];
+  if(L===sel.anchor||L===sel.focus)return L===cur().zoom?[]:[L];
+  const a=A[li-1],f=F[F.indexOf(L)-1],kids=node(L).children;
+  let i=kids.findIndex(k=>k.id===a),j=kids.findIndex(k=>k.id===f);if(i>j)[i,j]=[j,i];
+  return kids.slice(i,j+1).map(k=>k.id);
+}
+function paintSel(){
+  list.querySelectorAll('.node.sel').forEach(x=>x.classList.remove('sel'));
+  const ids=selIds(),on=ids.length>0;
+  if(!on)sel=null;
+  ids.forEach(id=>{const el=list.querySelector('.node[data-id="'+id+'"]');if(el)el.classList.add('sel')});
+  const was=list.classList.contains('selecting');
+  list.classList.toggle('selecting',on);
+  if(on)list.querySelectorAll('.txt').forEach(t=>t.setAttribute('contenteditable','false'));
+  else if(was)list.querySelectorAll('.txt').forEach(t=>editable(t));
+  selBar.hidden=!on;
+  if(on){let total=0;ids.forEach(id=>(function w(n){total++;n.children.forEach(w)})(node(id)));
+    $('selCount').textContent=ids.length+(ids.length===1?' item':' items')+(total>ids.length?' (+'+(total-ids.length)+' inside)':'');}
+}
+function startSel(anchor,focus){
+  hideTags();
+  const a=document.activeElement;if(a&&list.contains(a))a.blur();
+  try{getSelection().removeAllRanges()}catch(e){}
+  sel={anchor,focus};paintSel();
+}
+function clearSel(focusId){
+  const f=focusId||(sel&&sel.focus);sel=null;paintSel();
+  if(f){const el=list.querySelector('.txt[data-id="'+f+'"]');if(el&&!touchOnly())focusTxt(el)}
+}
+function selectAll(){const z=node(cur().zoom);if(!z||!z.children.length)return;startSel(z.children[0].id,z.children[z.children.length-1].id)}
+function moveSelFocus(dir){
+  const all=visibleTxt().map(t=>t.dataset.id);
+  /* step over the sub-items of what is already selected, so each press adds or removes a whole item */
+  const inside=new Set();selIds().forEach(id=>(function w(n){n.children.forEach(c=>{inside.add(c.id);w(c)})})(node(id)));
+  let j=all.indexOf(sel.focus)+dir;
+  while(j>=0&&j<all.length&&inside.has(all[j]))j+=dir;
+  if(j<0||j>=all.length)return;
+  sel.focus=all[j];paintSel();
+}
+function clipText(ids){
+  const out=[];
+  (function w(list,depth){list.forEach(c=>{const pad='  '.repeat(depth);
+    out.push(pad+'- '+(c.done?'[x] ':'')+c.text);
+    if(c.note)c.note.split('\n').forEach(l=>out.push(l?pad+'  '+l:''));
+    w(c.children,depth+1)})})(ids.map(node),0);
+  return out.join('\n');
+}
+const selAct={
+  copy(){const ids=selIds();copy(clipText(ids),'Copied '+ids.length+(ids.length===1?' item':' items'))},
+  cut(){const ids=selIds();copy(clipText(ids),'Cut '+ids.length+(ids.length===1?' item':' items'));selAct.delete(true)},
+  delete(quiet){
+    const ids=selIds();if(!ids.length)return;
+    const all=visibleTxt().map(t=>t.dataset.id),first=all.indexOf(ids[0]);
+    const gone=new Set();ids.forEach(id=>(function w(n){gone.add(n.id);n.children.forEach(w)})(node(id)));
+    const back=all.slice(0,first).reverse().find(x=>!gone.has(x))||all.find(x=>!gone.has(x));
+    const p=par(ids[0]);op(()=>{p.children=p.children.filter(c=>!ids.includes(c.id))});
+    sel=null;reindex(cur());renderOutline({focus:null});
+    if(!quiet)toast('Deleted '+ids.length+(ids.length===1?' item':' items')+'. Undo brings them back');
+    if(back&&idx.has(back)&&!touchOnly())focusTxt(list.querySelector('.txt[data-id="'+back+'"]'));
+  },
+  indent(){const ids=selIds(),p=par(ids[0]),i=p.children.findIndex(c=>c.id===ids[0]);if(i<=0)return;
+    op(()=>{const prev=p.children[i-1],grp=p.children.splice(i,ids.length);prev.children.push(...grp);prev.collapsed=false});renderOutline({focus:null})},
+  outdent(){const ids=selIds(),p=par(ids[0]);if(p.id===cur().zoom)return;const gp=par(p.id);
+    op(()=>{const i=p.children.findIndex(c=>c.id===ids[0]),grp=p.children.splice(i,ids.length);gp.children.splice(gp.children.indexOf(p)+1,0,...grp)});renderOutline({focus:null})},
+  up(){const ids=selIds(),p=par(ids[0]),i=p.children.findIndex(c=>c.id===ids[0]);if(i<=0)return;
+    op(()=>{const before=p.children.splice(i-1,1)[0];p.children.splice(i-1+ids.length,0,before)});renderOutline({focus:null})},
+  down(){const ids=selIds(),p=par(ids[0]),i=p.children.findIndex(c=>c.id===ids[0]),j=i+ids.length;if(j>=p.children.length)return;
+    op(()=>{const after=p.children.splice(j,1)[0];p.children.splice(i,0,after)});renderOutline({focus:null})},
+  done(){const ns=selIds().map(node),all=ns.every(n=>n.done);op(()=>ns.forEach(n=>n.done=!all));renderOutline({focus:null})},
+  clear(){clearSel()}
+};
+selBar.addEventListener('mousedown',e=>e.preventDefault());
+selBar.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&sel&&selAct[b.dataset.s])selAct[b.dataset.s]()});
+document.addEventListener('keydown',e=>{
+  if(!sel)return;
+  const t=e.target;if(t&&(/INPUT|TEXTAREA|SELECT/.test(t.tagName)||(t.isContentEditable&&!list.contains(t))))return;
+  const k=e.key,mod=e.ctrlKey||e.metaKey;
+  if((k==='ArrowUp'||k==='ArrowDown')&&mod&&e.shiftKey){e.preventDefault();k==='ArrowUp'?selAct.up():selAct.down();return}
+  if((k==='ArrowUp'||k==='ArrowDown')&&e.shiftKey){e.preventDefault();moveSelFocus(k==='ArrowUp'?-1:1);return}
+  if(k==='ArrowUp'||k==='ArrowDown'){e.preventDefault();const ids=selIds();clearSel(k==='ArrowUp'?ids[0]:ids[ids.length-1]);return}
+  if(k==='Escape'){e.preventDefault();e.stopPropagation();clearSel();return}
+  if(k==='Tab'){e.preventDefault();e.shiftKey?selAct.outdent():selAct.indent();return}
+  if(k==='Enter'&&mod){e.preventDefault();selAct.done();return}
+  if(k==='Backspace'||k==='Delete'){e.preventDefault();selAct.delete();return}
+  if(mod&&(k==='a'||k==='A')){e.preventDefault();selectAll();return}
+  if(mod&&(k==='z'||k==='Z'||k==='y'||k==='Y')){e.preventDefault();sel=null;undo(k==='y'||k==='Y'||e.shiftKey);return}
+},true);
+document.addEventListener('copy',e=>{if(!sel)return;const ids=selIds();if(!ids.length)return;e.preventDefault();e.clipboardData.setData('text/plain',clipText(ids));toast('Copied '+ids.length+(ids.length===1?' item':' items'))});
+document.addEventListener('cut',e=>{if(!sel)return;const ids=selIds();if(!ids.length)return;e.preventDefault();e.clipboardData.setData('text/plain',clipText(ids));selAct.delete(true);toast('Cut '+ids.length+(ids.length===1?' item':' items'))});
+/* mouse: Shift-click extends from the item being edited; dragging across items selects them */
+let dragSel=null;
+list.addEventListener('mousedown',e=>{
+  if(e.button!==0)return;
+  const nd=e.target.closest('.node');if(!nd||e.target.closest('.dot,.tog,.res,.thumb,.nmark,a,.ilink,.tag'))return;
+  const id=nd.dataset.id;
+  if(sel&&!e.shiftKey){e.preventDefault();if(touchOnly())return;sel=null;paintSel();const el=list.querySelector('.txt[data-id="'+id+'"]');if(el)focusTxt(el);return}
+  if(e.shiftKey){
+    const from=sel?sel.anchor:(state.last&&idx.has(state.last.id)&&document.activeElement&&list.contains(document.activeElement)?state.last.id:null);
+    if(from&&from!==id||sel){e.preventDefault();startSel(from||id,id);return}
+  }
+  dragSel={start:id,moved:false};
+},true);
+list.addEventListener('mousemove',e=>{
+  if(!dragSel||!(e.buttons&1))return;
+  const nd=e.target.closest&&e.target.closest('.node');if(!nd)return;
+  const id=nd.dataset.id;
+  if(!dragSel.moved&&id===dragSel.start)return;
+  if(!dragSel.moved){dragSel.moved=true;startSel(dragSel.start,id);return}
+  if(sel&&sel.focus!==id){sel.focus=id;paintSel()}
+});
+document.addEventListener('mouseup',()=>{dragSel=null});
+/* phone: after Select, tapping items extends the selection */
+list.addEventListener('click',e=>{
+  if(!sel)return;const nd=e.target.closest('.node');if(!nd||e.target.closest('.dot,.tog,.res,.thumb,.nmark'))return;
+  if(!touchOnly())return;
+  e.preventDefault();sel.focus=nd.dataset.id;paintSel();
+},true);
+document.addEventListener('pointerdown',e=>{if(sel&&!list.contains(e.target)&&!selBar.contains(e.target)&&!e.target.closest('.scrim,.pop,#moreBtn,.toast'))clearSel()});
 
 /* ---------- Outline events ---------- */
 list.addEventListener('focusin',e=>{
@@ -933,13 +1363,22 @@ list.addEventListener('click',e=>{
 list.addEventListener('paste',e=>{
   const t=e.target;if(!t.classList||!(t.classList.contains('txt')||t.classList.contains('note')))return;
   const cd=e.clipboardData||window.clipboardData;
-  const pic=cd&&cd.files&&[...cd.files].find(x=>/^image\//.test(x.type));
-  if(pic){e.preventDefault();insertImage(pic,t.dataset.id);return}
+  const pics=cd&&cd.files?[...cd.files].filter(x=>/^image\//.test(x.type)):[];
+  if(pics.length){e.preventDefault();insertImage(pics,t.dataset.id);return}
   const text=cd.getData('text/plain');if(text==null)return;
   e.preventDefault();
   const n=node(t.dataset.id);const[a,b]=getSel(t);
   if(t.classList.contains('note')){beginBurst();const cur0=t.innerText;n.note=cur0.slice(0,a)+text+cur0.slice(b);t.textContent=n.note;setCaret(t,a+text.length);save();return}
   const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+  if(lines.length>1&&/^\s*[-+*•] /.test(lines[0])){
+    /* a bulleted list (e.g. copied from Tallyline): keep levels, ticks and notes */
+    const r=textToOutline(text);let last=null;
+    op(()=>{
+      const[pp,ss,ii]=sib(n.id),empty=!n.text.trim()&&!n.children.length&&n.note==null;
+      ss.splice(empty?ii:ii+1,empty?1:0,...r.children);last=r.children[r.children.length-1];
+    });
+    renderOutline({focus:{id:last.id}});return;
+  }
   if(lines.length<=1){beginBurst();const s=(lines[0]||text).replace(/\n/g,' ');n.text=n.text.slice(0,a)+s+n.text.slice(b);t.textContent=n.text;setCaret(t,a+s.length);refreshResults();save();return}
   const items=lines.map(l=>{const w=l.match(/^[\t ]*/)[0].replace(/\t/g,'  ').length;let s=l.trim().replace(/^([-*•+]|\d+[.)])\s+/,'');let done=false;const cb=s.match(/^\[([ xX])\]\s*/);if(cb){done=cb[1]!==' ';s=s.slice(cb[0].length)}return{w,s,done}});
   let last;
@@ -989,6 +1428,12 @@ list.addEventListener('keydown',e=>{
     }
     return;
   }
+  if((k==='ArrowUp'||k==='ArrowDown')&&e.shiftKey&&!mod&&!e.altKey&&!touchOnly()){
+    const up=k==='ArrowUp';
+    if(len===0||(up?(a===0&&caretAtEdge(t,-1)):(b===len&&caretAtEdge(t,1)))){e.preventDefault();startSel(id,id);return}
+    return;
+  }
+  if(mod&&(k==='a'||k==='A')&&a===0&&b===len&&len>0){e.preventDefault();selectAll();return}
   if((k==='ArrowUp'||k==='ArrowDown')&&mod&&e.shiftKey||(k==='ArrowUp'||k==='ArrowDown')&&e.altKey&&e.shiftKey){e.preventDefault();act.move(id,k==='ArrowUp'?-1:1,a);return}
   if((k==='ArrowUp'||k==='ArrowDown')&&mod){e.preventDefault();act.fold(id,k==='ArrowUp');return}
   if((k==='ArrowUp'||k==='ArrowDown')&&!e.shiftKey&&!e.altKey){
@@ -1062,6 +1507,7 @@ function tagCheck(t){
       .filter(x=>x.tag[0]===sym&&x.tag.slice(1).toLowerCase().startsWith(typed)&&x.tag.slice(1).toLowerCase()!==word)
       .sort((x,y)=>y.n-x.n||x.tag.localeCompare(y.tag)).slice(0,8)
       .map(x=>({kind:'tag',label:x.tag,sub:String(x.n),insert:x.tag,title:'Used '+x.n+(x.n===1?' time':' times')}));
+    if(sym==='@'&&'today'.startsWith(typed)){const dt=todayTag();items=items.filter(x=>x.label!=='@'+dt);items.unshift({kind:'tag',label:'@today',sub:dt,insert:'@'+dt,title:"Today's date"})}
   }
   if(!items.length){hideTags();return}
   const prev=tagUI.el===t&&tagUI.items[tagUI.i]?items.findIndex(x=>x.label===tagUI.items[tagUI.i].label):-1;
@@ -1214,31 +1660,79 @@ async function shrinkImage(file){
   }finally{URL.revokeObjectURL(url)}
 }
 function addImageTo(id){state.imgTarget=id;const i=$('imgInput');i.value='';i.click()}
-$('imgInput').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(f)insertImage(f,state.imgTarget)});
-async function insertImage(file,id){
-  if(!file||!/^image\//.test(file.type||'image/')){toast("That file isn't an image");return}
-  toast('Adding image…');
-  let blob;try{blob=await shrinkImage(file)}catch(e){blob=null}
-  if(!blob){toast("Couldn't read that image. Try a JPEG or PNG");return}
-  const key=uid()+'.jpg';await IDB.set(key,blob);
-  const d=cur();reindex(d);const md='![](img:'+key+')';
+$('imgInput').addEventListener('change',e=>{const fs=[...(e.target.files||[])];if(fs.length)insertImage(fs,state.imgTarget)});
+async function insertImage(files,id){
+  files=(Array.isArray(files)?files:[files]).filter(f=>f&&/^image\//.test(f.type||'image/'));
+  if(!files.length){toast("That file isn't an image");return}
+  const many=files.length>1;
+  const mds=[];let failed=0;
+  for(let i=0;i<files.length;i++){
+    toast(many?'Adding photo '+(i+1)+' of '+files.length+'…':'Adding image…');
+    let blob;try{blob=await shrinkImage(files[i])}catch(e){blob=null}
+    if(!blob){failed++;continue}
+    const key=uid()+'.jpg';await IDB.set(key,blob);mds.push('![](img:'+key+')');
+  }
+  if(!mds.length){toast("Couldn't read "+(many?'those images':'that image')+'. Try JPEG or PNG');return}
+  const d=cur();reindex(d);const md=mds.join(' ');
   let n=id&&node(id);
   if(n)op(()=>{n.text=n.text.trim()?n.text.replace(/\s*$/,' ')+md:md});
   else{const z=node(d.zoom)||d.root;n=mk(md);op(()=>z.children.push(n))}
-  renderOutline({focus:null});toast('Image added');
+  renderOutline({focus:null});
+  toast((mds.length===1?'Image added':mds.length+' photos added')+(failed?'. '+failed+" couldn't be read":''));
 }
 list.addEventListener('dragover',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))e.preventDefault()});
 list.addEventListener('drop',e=>{
-  const f=e.dataTransfer&&[...e.dataTransfer.files].find(x=>/^image\//.test(x.type));if(!f)return;
-  e.preventDefault();const nd=e.target.closest('.node');insertImage(f,nd?nd.dataset.id:null);
+  const fs=e.dataTransfer?[...e.dataTransfer.files].filter(x=>/^image\//.test(x.type)):[];if(!fs.length)return;
+  e.preventDefault();const nd=e.target.closest('.node');insertImage(fs,nd?nd.dataset.id:null);
 });
 let viewing=null;
 const imgKeys=t=>[...(t||'').matchAll(/!\[[^\]]*\]\(img:([\w.-]+)\)/g)].map(m=>m[1]);
+const imgRe=k=>new RegExp('!\\[([^\\]]*)\\]\\(img:'+k.replace(/\./g,'\\.')+'\\)');
+function captionOf(n,k){const m=n&&n.text.match(imgRe(k));return m?m[1].trim():''}
+/* keep the caption on the photo itself, not on the empty bars beside it */
+function placeCap(){
+  const img=$('imgBig'),cap=$('imgCap');
+  if(!img.naturalWidth||!img.clientWidth){cap.style.left=cap.style.bottom=cap.style.maxWidth='';return}
+  const bw=img.clientWidth,bh=img.clientHeight,r=Math.min(bw/img.naturalWidth,bh/img.naturalHeight);
+  const w=img.naturalWidth*r,h=img.naturalHeight*r;
+  cap.style.left=Math.round((bw-w)/2+10)+'px';cap.style.bottom=Math.round((bh-h)/2+10)+'px';cap.style.maxWidth=Math.max(80,Math.round(w-20))+'px';
+}
+$('imgBig').addEventListener('load',placeCap);
+window.addEventListener('resize',()=>{if(!$('imgModal').hidden)placeCap()});
+/* when the keyboard is up (typing a caption), fit the viewer into what is still visible */
+(()=>{const vv=window.visualViewport;if(!vv)return;const m=$('imgModal');
+  const fit=()=>{const full=document.documentElement.clientHeight;
+    if(!m.hidden&&full-vv.height>120){m.style.top=vv.offsetTop+'px';m.style.height=vv.height+'px';m.style.bottom='auto'}
+    else{m.style.top=m.style.height=m.style.bottom=''}
+    if(!m.hidden)placeCap()};
+  vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit);
+})();
+function paintCaption(){
+  if(!viewing)return;
+  const n=node(viewing.id),c=captionOf(n,viewing.keys[viewing.i]),hide=!!store.settings.hideCaps;
+  const vc=$('imgCap');vc.textContent=c;vc.hidden=!c||hide;placeCap();
+  const tg=$('capToggle');tg.setAttribute('aria-pressed',String(!hide));tg.textContent=hide?'Captions off':'Captions on';
+}
+function setCaptionsHidden(h){
+  store.settings.hideCaps=h;save();
+  $('hideCaps').setAttribute('aria-pressed',String(h));
+  paintCaption();renderOutline({focus:null});
+}
+$('capToggle').addEventListener('click',()=>setCaptionsHidden(!store.settings.hideCaps));
+$('hideCaps').addEventListener('click',()=>setCaptionsHidden(!store.settings.hideCaps));
+$('capInput').addEventListener('input',e=>{
+  const n=viewing&&node(viewing.id);if(!n)return;
+  const k=viewing.keys[viewing.i],c=e.target.value.replace(/[\[\]\n\r]/g,' ').replace(/\s+/g,' ');
+  beginBurst();n.text=n.text.replace(imgRe(k),'!['+c.trim()+'](img:'+k+')');save();
+  paintCaption();renderOutline({focus:null});
+});
+$('capInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.target.blur()}if(e.key!=='Escape')e.stopPropagation()});
 function showViewing(){
   const v=viewing,big=$('imgBig'),L=v.keys.length;
   big.removeAttribute('src');big.alt='Image '+(v.i+1)+' of '+L;
   const k=v.keys[v.i];imgURL(k).then(u=>{if(u&&viewing&&viewing.keys[viewing.i]===k)big.src=u});
   $('imgNav').hidden=L<2;$('imgCount').textContent=(v.i+1)+' of '+L;
+  const n=node(v.id);$('capInput').value=captionOf(n,k);$('capInput').disabled=!n;paintCaption();
 }
 function viewImage(im){
   const nd=im.closest('.node'),n=nd&&node(nd.dataset.id);
@@ -1287,6 +1781,9 @@ titleEl.addEventListener('keydown',e=>{
 });
 $('addFirst').addEventListener('click',addChildOfZoom);
 $('zRes').addEventListener('click',e=>copy(e.currentTarget.dataset.raw));
+$('zAct').addEventListener('click',e=>copy(e.currentTarget.dataset.raw));
+$('zDif').addEventListener('click',e=>copy(e.currentTarget.dataset.raw));
+$('zPct').addEventListener('click',e=>copy(e.currentTarget.dataset.raw));
 $('outlineView').addEventListener('mousedown',e=>{
   if(e.target.id==='outlineView'||e.target===list){
     const all=visibleTxt();if(!all.length)return;
@@ -1313,6 +1810,7 @@ $('outlineView').addEventListener('mousedown',e=>{
 $('kbar').addEventListener('mousedown',e=>e.preventDefault());
 $('kbar').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.k==='undo'){undo(false);return}
   if(b.dataset.k==='image'&&(!state.last||!node(state.last.id))){addImageTo(null);return}
   if(!state.last)return;
   const id=state.last.id;if(!node(id))return;
@@ -1320,7 +1818,7 @@ $('kbar').addEventListener('click',e=>{
   const k=b.dataset.k;
   if(k==='indent')act.indent(id,pos);else if(k==='outdent')act.outdent(id,pos);
   else if(k==='up')act.move(id,-1,pos);else if(k==='down')act.move(id,1,pos);
-  else if(k==='done')act.done(id,pos);else if(k==='note')act.note(id);else if(k==='zoom')act.zoomIn(id);else if(k==='image')addImageTo(id);
+  else if(k==='done')act.done(id,pos);else if(k==='note')act.note(id);else if(k==='zoom')act.zoomIn(id);else if(k==='image')addImageTo(id);else if(k==='select')startSel(id,id);
 });
 
 /* search & toolbar */
@@ -1433,6 +1931,10 @@ function renderSide(){
     el.append(wrap);
   });
   store.docs.filter(d=>!d.folder).forEach(d=>el.append(docBtn(d)));
+  const tr=(store.trash||[]).length;
+  if(tr){const b=document.createElement('button');b.type='button';b.className='trashrow';
+    b.innerHTML='<svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><path d="M3 4.5h9M6 4.5V3h3v1.5M4.2 4.5l.6 8h5.4l.6-8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg><span></span>';
+    b.querySelector('span').textContent='Recently deleted ('+tr+')';b.addEventListener('click',openTrash);el.append(b)}
 }
 function setDrawer(on){$('app').classList.toggle('drawer',on)}
 $('menuBtn').addEventListener('click',()=>setDrawer(true));
@@ -1442,6 +1944,7 @@ function render(){
   renderSide();resetDel();
   $('hideDone').setAttribute('aria-pressed',String(!!store.settings.hideDone));
   $('hideNotes').setAttribute('aria-pressed',String(!!store.settings.hideNotes));
+  $('hideCaps').setAttribute('aria-pressed',String(!!store.settings.hideCaps));
   renderOutline({focus:null});
 }
 function focusTitle(el){el.focus();const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)}
@@ -1456,11 +1959,187 @@ const delBtn=$('delBtn');
 function resetDel(){clearTimeout(state.delT);delete delBtn.dataset.arm;delBtn.textContent='Delete document';delBtn.classList.remove('arm')}
 delBtn.addEventListener('click',()=>{
   if(!delBtn.dataset.arm){delBtn.dataset.arm='1';delBtn.textContent='Tap again to delete';delBtn.classList.add('arm');clearTimeout(state.delT);state.delT=setTimeout(resetDel,3500);return}
-  const i=store.docs.findIndex(x=>x.id===store.activeId);const gone=store.docs.splice(i,1)[0];if(gone.gh)(store.ghTrash=store.ghTrash||[]).push({path:gone.gh.path});
+  const i=store.docs.findIndex(x=>x.id===store.activeId);const gone=store.docs.splice(i,1)[0];if(gone.gh)(store.ghTrash=store.ghTrash||[]).push({path:gone.gh.path});(store.trash=store.trash||[]).unshift({doc:JSON.parse(JSON.stringify(gone)),at:Date.now()});
   if(!store.docs.length)store.docs.push({id:uid(),type:'outline',title:'',zoom:'root',root:{id:'root',text:'',children:[mk('')]}});
   store.activeId=store.docs[Math.max(0,i-1)].id;hist.delete(gone.id);
-  setPop(false);render();save();toast('Deleted “'+(gone.title||'Untitled')+'”');
+  setPop(false);render();save();toast('Moved “'+(gone.title||'Untitled')+'” to Recently deleted');
 });
+/* ---------- Recently deleted ---------- */
+function ago(t){const d=Math.floor((Date.now()-t)/864e5);return d<1?'today':d===1?'yesterday':d+' days ago'}
+function openTrash(){setDrawer(false);drawTrash();openModal($('trashModal'))}
+function drawTrash(){
+  const box=$('trashList');box.textContent='';
+  const items=store.trash||[];
+  if(!items.length){const p=document.createElement('p');p.className='mtext';p.textContent='Nothing here.';box.append(p);return}
+  items.forEach((t,k)=>{
+    const row=document.createElement('div');row.className='titem';
+    row.innerHTML='<div><b></b><small></small></div>';
+    row.querySelector('b').textContent=t.doc.title||'Untitled';
+    row.querySelector('small').textContent='Deleted '+ago(t.at)+(t.doc.folder?' · from '+t.doc.folder:'');
+    const rs=document.createElement('button');rs.type='button';rs.className='btn primary';rs.textContent='Restore';
+    rs.addEventListener('click',()=>{
+      const d=store.trash.splice(k,1)[0].doc;delete d.gh;d.id=uid();
+      store.docs.push(d);ensureFolders();closeModals();openDoc(d.id);toast('Restored “'+(d.title||'Untitled')+'”');
+    });
+    const del=document.createElement('button');del.type='button';del.className='btn';del.textContent='Delete now';
+    del.addEventListener('click',()=>{
+      if(!del.classList.contains('arm')){del.classList.add('arm');del.textContent='Tap again';return}
+      store.trash.splice(k,1);save();renderSide();drawTrash();
+    });
+    row.append(rs,del);box.append(row);
+  });
+}
+
+/* ---------- Copy for next month: keep budgets, clear actuals ---------- */
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function nextTitle(t){
+  t=(t||'').trim()||'Untitled';
+  const bumpYear=(s,i)=>i===11?s.replace(/\b(19|20)(\d\d)\b/,y=>String(+y+1)):s;
+  for(let i=0;i<12;i++){
+    const full=new RegExp('\\b'+MONTHS[i]+'\\b','i');
+    if(full.test(t))return bumpYear(t.replace(full,MONTHS[(i+1)%12]),i);
+  }
+  for(let i=0;i<12;i++){
+    const short=new RegExp('\\b'+MONTHS[i].slice(0,3)+'\\b','i');
+    if(short.test(t))return bumpYear(t.replace(short,MONTHS[(i+1)%12].slice(0,3)),i);
+  }
+  const ym=t.match(/\b((?:19|20)\d\d)[-/](\d\d?)\b/);
+  if(ym){let y=+ym[1],m=+ym[2]+1;if(m>12){m=1;y++}return t.replace(ym[0],y+ym[0].slice(4,5)+String(m).padStart(ym[2].length,'0'))}
+  return t+' (next)';
+}
+/* returns the text without its actual amount, null for unbudgeted spending, or the text unchanged */
+function clearActual(text){
+  const fl=eqFlags(text),body=fl?fl.expr:text,end=fl?text.trim().slice(fl.expr.length).trim():'';
+  let out;
+  if(/;;\s*$/.test(body)){out=body.replace(/\s*;;\s*$/,'')}
+  else{
+    const k=body.lastIndexOf(';');if(k<0)return text;
+    const left=body.slice(0,k),right=body.slice(k+1);
+    if(left.includes(';')||!/\d/.test(right)||!/^[\sR$€£\d.,*+\-\/()%kK]*$/.test(right))return text;
+    if(!/\d/.test(left.replace(/^[^:;]*[A-Za-z][^:;]*:/,'')))return null;
+    out=left.replace(/\s+$/,'');
+  }
+  return out+(end?' '+end:'');
+}
+function copyForNextMonth(){
+  const d=cur();let removed=0,cleared=0;
+  const clone=n=>{const c=Object.assign({},n,{id:uid(),done:false,children:[]});n.children.forEach(k=>{
+      const t=clearActual(k.text);
+      if(t===null&&!k.children.length){removed++;return}
+      const ck=clone(k);if(t!==null&&t!==k.text){ck.text=t;cleared++}c.children.push(ck)});
+    delete c.collapsed;if(n.collapsed)c.collapsed=true;return c};
+  const root=clone(d.root);root.id='root';
+  const nd={id:uid(),type:'outline',title:nextTitle(d.title),zoom:'root',root};
+  if(d.folder)nd.folder=d.folder;
+  store.docs.splice(store.docs.indexOf(d)+1,0,nd);
+  openDoc(nd.id);
+  toast('Made “'+nd.title+'”. '+cleared+(cleared===1?' actual':' actuals')+' cleared'+(removed?', '+removed+' unbudgeted '+(removed===1?'line':'lines')+' left out':''));
+}
+$('nextBtn').addEventListener('click',copyForNextMonth);
+/* ---------- Duplicate: an exact copy with " (copy)" added to the name ---------- */
+function duplicateDoc(){
+  const d=cur();
+  const clone=n=>Object.assign({},n,{id:uid(),children:n.children.map(clone)});
+  const root=clone(d.root);root.id='root';
+  const base=(d.title||'Untitled').replace(/ \(copy(?: \d+)?\)$/,'');
+  let title=base+' (copy)',k=2;
+  while(store.docs.some(x=>(x.title||'').toLowerCase()===title.toLowerCase()))title=base+' (copy '+(k++)+')';
+  const nd={id:uid(),type:'outline',title,zoom:'root',root};
+  if(d.folder)nd.folder=d.folder;
+  store.docs.splice(store.docs.indexOf(d)+1,0,nd);
+  openDoc(nd.id);toast('Made “'+title+'”');
+}
+$('dupBtn').addEventListener('click',duplicateDoc);
+
+/* ---------- Copy for Excel: item, budget, actual, difference (and % when used) ---------- */
+function excelLabel(n){
+  const fl=eqFlags(n.text);let t=plain(fl?fl.expr:n.text);
+  const lab=t.match(/^([^:;]*[A-Za-z][^:;]*):(.*)$/);
+  if(lab&&/\d/.test(lab[2]))t=lab[1];
+  return t.trim()||'(untitled)';
+}
+function copyForExcel(){
+  evaluate(cur().root);
+  const roots=sel?selIds().map(node):(node(cur().zoom)||cur().root).children;
+  const rows=[],anyPct={v:false};
+  (function w(list,depth){list.forEach(n=>{
+    if(store.settings.hideDone&&n.done)return;
+    const e=EV.get(n.id)||{},b=e.v!=null?e.v:null,a=e.a!=null?e.a:null;
+    let d='',p='';
+    if(b!=null&&a!=null){const x=e.pct?a-b:b-a;d=rawNum(x);if(e.pct){anyPct.v=true;if(b)p=rawNum(Math.round(x/Math.abs(b)*1000)/10)}}
+    rows.push(['  '.repeat(depth)+excelLabel(n).replace(/\t/g,' '),b!=null?rawNum(b):'',a!=null?rawNum(a):'',d,p]);
+    w(n.children,depth+1);
+  })})(roots,0);
+  if(!rows.length){toast('Nothing to copy');return}
+  const head=['Item','Budget','Actual','Difference'];if(anyPct.v)head.push('Change %');
+  const tsv=[head,...rows.map(r=>anyPct.v?r:r.slice(0,4))].map(r=>r.join('\t')).join('\n');
+  copy(tsv,'Copied '+rows.length+(rows.length===1?' row':' rows')+'. Paste into Excel');
+}
+$('excelBtn').addEventListener('click',copyForExcel);
+
+/* ---------- Drag a bullet's dot to move the item ---------- */
+let drag=null;const dropLine=document.createElement('div');dropLine.className='dropline';dropLine.hidden=true;document.body.append(dropLine);
+list.addEventListener('pointerdown',e=>{
+  const dot=e.target.closest('.dot');if(!dot||sel||state.q)return;
+  drag={id:dot.dataset.id,dot,x:e.clientX,y:e.clientY,pid:e.pointerId,on:false,touch:e.pointerType!=='mouse',target:null};
+  if(drag.touch)drag.timer=setTimeout(()=>{if(drag&&!drag.on)beginDrag()},320);
+});
+function beginDrag(){
+  drag.on=true;document.body.classList.add('dragmode');
+  try{drag.dot.setPointerCapture(drag.pid)}catch(e){}
+  const el=list.querySelector('.node[data-id="'+drag.id+'"]');if(el)el.classList.add('dragging');
+  hideTags();const a=document.activeElement;if(a&&list.contains(a))a.blur();
+}
+list.addEventListener('pointermove',e=>{
+  if(!drag||e.pointerId!==drag.pid)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y,far=Math.hypot(dx,dy)>7;
+  if(!drag.on){
+    if(drag.touch){if(far){clearTimeout(drag.timer);drag=null}return}
+    if(!far)return;beginDrag();
+  }
+  e.preventDefault();
+  const main=$('main'),mr=main.getBoundingClientRect();
+  if(e.clientY<mr.top+60)main.scrollTop-=12;else if(e.clientY>mr.bottom-60)main.scrollTop+=12;
+  const under=document.elementFromPoint(e.clientX,e.clientY),nd=under&&under.closest&&under.closest('#list .node');
+  drag.target=null;dropLine.hidden=true;
+  if(!nd)return;
+  const tid=nd.dataset.id;
+  for(let x=tid;x;x=par(x)&&par(x).id)if(x===drag.id)return;
+  const row=nd.querySelector(':scope>.row'),r=row.getBoundingClientRect(),after=e.clientY>r.top+r.height/2;
+  const body=row.querySelector('.body').getBoundingClientRect();
+  drag.target={id:tid,after};
+  dropLine.hidden=false;dropLine.style.left=(body.left-6)+'px';dropLine.style.width=Math.max(60,r.right-body.left)+'px';
+  dropLine.style.top=((after?(nd.getBoundingClientRect().bottom):r.top)-1)+'px';
+});
+function endDrag(e){
+  if(!drag)return;clearTimeout(drag.timer);
+  const d=drag;drag=null;dropLine.hidden=true;document.body.classList.remove('dragmode');
+  if(!d.on)return;
+  state.justDragged=Date.now();
+  const el=list.querySelector('.node.dragging');if(el)el.classList.remove('dragging');
+  if(!d.target||d.target.id===d.id)return;
+  const n=node(d.id),tp=par(d.target.id);
+  op(()=>{
+    const p=par(d.id);p.children.splice(p.children.indexOf(n),1);
+    const t=node(d.target.id),i=tp.children.indexOf(t);
+    tp.children.splice(d.target.after?i+1:i,0,n);
+  });
+  renderOutline({focus:null});
+}
+list.addEventListener('pointerup',endDrag);list.addEventListener('pointercancel',endDrag);
+list.addEventListener('click',e=>{if(state.justDragged&&Date.now()-state.justDragged<400&&e.target.closest('.dot')){e.stopPropagation();e.preventDefault()}},true);
+list.addEventListener('contextmenu',e=>{if(e.target.closest('.dot'))e.preventDefault()});
+
+/* ---------- @today becomes the date ---------- */
+function todayTag(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+list.addEventListener('input',e=>{
+  const t=e.target;if(!t.classList||!t.classList.contains('txt'))return;
+  const n=node(t.dataset.id);if(!n||!/(^|\s)@today\s/i.test(n.text))return;
+  const[a]=getSel(t),dt='@'+todayTag();
+  const before=n.text.slice(0,a);const shift=(before.match(/(^|\s)@today\s/gi)||[]).length*(dt.length-6);
+  n.text=n.text.replace(/(^|\s)@today(\s)/gi,'$1'+dt+'$2');t.textContent=n.text;setCaret(t,a+shift);hideTags();save();
+});
+
 /* more menu */
 const pop=$('pop'),moreBtn=$('moreBtn');
 function fillMove(){
@@ -1485,7 +2164,7 @@ function outlineText(n,depth){
   return n.children.map(c=>{
     const pad='  '.repeat(depth);
     let s=pad+'- '+(c.done?'[x] ':'')+c.text;
-    {const e=EV.get(c.id);if(e&&e.show&&e.v!=null)s+=' '+rawNum(e.v);if(e&&e.count)s+=' ('+e.count+(e.count===1?' item':' items')+')'}
+    {const e=EV.get(c.id);if(e&&e.show&&e.dual){s+=' '+(e.v!=null?rawNum(e.v):'')+';'+(e.a!=null?rawNum(e.a):'');if(e.v!=null&&e.a!=null){const dd=e.pct?e.a-e.v:e.v-e.a;s+=' ['+(dd>0?'+':'')+rawNum(dd)+']';if(e.pct&&e.v)s+=' ['+(dd>0?'+':'')+rawNum(Math.round(dd/Math.abs(e.v)*1000)/10)+'%]'}}else if(e&&e.show&&e.v!=null)s+=' '+rawNum(e.v);if(e&&e.count)s+=' ('+e.count+(e.count===1?' item':' items')+')'}
     s+='\n';
     if(c.note)s+=c.note.split('\n').map(l=>pad+'    '+l).join('\n')+'\n';
     return s+outlineText(c,depth+1);
@@ -1520,6 +2199,7 @@ document.querySelectorAll('.scrim').forEach(m=>{
   m.addEventListener('click',e=>{if(e.target===m||e.target.hasAttribute('data-close'))closeModals()});
 });
 document.addEventListener('keydown',e=>{
+  if(e.defaultPrevented)return;
   if(e.key==='Escape'&&!pop.hidden){setPop(false);moreBtn.focus();return}
   if(e.key==='Escape'){if([...document.querySelectorAll('.scrim')].some(m=>!m.hidden)){closeModals();return}setDrawer(false)}
   const tgt=e.target,typing=tgt.isContentEditable||/INPUT|TEXTAREA/.test(tgt.tagName);
@@ -1529,44 +2209,8 @@ document.addEventListener('keydown',e=>{
   else if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='y')&&cur().type==='outline'){e.preventDefault();undo(e.key==='y'||e.shiftKey)}
 });
 
-/* ---------- Plain-text file format ---------- */
+/* ---------- Plain-text files ---------- */
 const EXT='.txt';
-function outlineToText(root){
-  const out=[];
-  (function w(n,depth){
-    n.children.forEach(c=>{
-      const pad='  '.repeat(depth);
-      out.push(pad+(c.collapsed&&c.children.length?'+ ':'- ')+(c.done?'[x] ':'')+c.text);
-      if(c.note)c.note.split('\n').forEach(l=>out.push(l?pad+'  '+l:''));
-      w(c,depth+1);
-    });
-  })(root,0);
-  return out.join('\n')+'\n';
-}
-function textToOutline(text){
-  const root={id:'root',text:'',children:[]};
-  const stack=[{depth:-1,node:root}];let last=null,lastDepth=0;
-  text.replace(/\r/g,'').split('\n').forEach(line=>{
-    const raw=line.replace(/^\t+/,t=>'  '.repeat(t.length));
-    const m=raw.match(/^( *)([-+*•])(?: (\[[xX ]\] )?(.*))?$/);
-    if(m){
-      const depth=Math.floor(m[1].length/2);
-      const n=mk(m[4]||'');
-      if(m[2]==='+')n.collapsed=true;
-      if(m[3]&&/x/i.test(m[3]))n.done=true;
-      while(stack.length>1&&stack[stack.length-1].depth>=depth)stack.pop();
-      stack[stack.length-1].node.children.push(n);stack.push({depth,node:n});
-      last=n;lastDepth=depth;return;
-    }
-    if(!last){if(raw.trim()){const n=mk(raw.trim());root.children.push(n);stack.length=1;stack.push({depth:0,node:n});last=n;lastDepth=0}return}
-    const cut=(lastDepth+1)*2;
-    const s=raw.slice(0,cut).trim()===''?raw.slice(cut):raw.trim();
-    last.note=last.note==null?s:last.note+'\n'+s;
-  });
-  (function w(n){n.children.forEach(c=>{if(c.note!=null){c.note=c.note.replace(/^\n+|\n+$/g,'');if(!c.note)delete c.note}w(c)})})(root);
-  if(!root.children.length)root.children.push(mk(''));
-  return root;
-}
 const docToText=d=>outlineToText(d.root);
 function docFromFile(path,text,sha){
   const name=path.split('/').pop();
