@@ -427,7 +427,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <dl class="keys">
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
       <dt><code>Fuel =:</code></dt><dd>Total of the items under it, with a count. Add-ons go after the =</dd>
-      <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon)</dd>
+      <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon). A line like <code>Technical: Bonolo, Jaco</code> counts each name, and <code>101: 1,3,5</code> or <code>301: 1-10</code> counts each number. Counts show in brackets, like (15)</dd>
       <dt><code>rate = 850</code></dt><dd>A variable for every bullet below it</dd>
       <dt><code>spent =</code></dt><dd>A one-word name before = keeps the total as a variable</dd>
       <dt><code>total · avg</code></dt><dd>Adds or averages the items above it at the same level, shown in teal and pink. They are not counted again in totals</dd>
@@ -973,6 +973,24 @@ function summaryKind(expr,scope){
   if(has(/\b(avg|average)\b(?!\s*\()/gi))return'avg';
   return null;
 }
+/* What a line under a counted heading ( ... : ) adds to the count:
+   "Technical: Bonolo, Jaco, Roderick" is 3, "101: 1,3,5" is 3, "301: 1-10" is 10, "Mixed: 1-3, 7" is 4.
+   Under a counted heading a comma always separates items, so "101: 100,200,300" is 3. */
+function listCount(t){
+  const m=plain(t).match(/^([^:]+):\s*(.+)$/);if(!m)return null;
+  const rest=m[2].trim();
+  const parts=rest.split(',').map(p=>p.trim()).filter(Boolean);if(!parts.length)return null;
+  let n=0;
+  for(const p of parts){
+    const r=p.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+    if(r){const a=+r[1],b=+r[2];if(Math.abs(b-a)>100000)return null;n+=Math.abs(b-a)+1;continue}
+    if(/^\d+$/.test(p)||/\p{L}{2,}/u.test(p)){n++;continue}
+    return null;
+  }
+  return n;
+}
+const isNameList=t=>listCount(t)!=null;
+function nameCount(t){if(!plain(t).trim())return 0;const n=listCount(t);return n!=null?n:1}
 function evaluate(root){
   EV=new Map();const scope={};
   (function group(n,depth){
@@ -997,7 +1015,16 @@ function evaluate(root){
           const q=Calc.line(fl.expr,isDef?scope:Object.assign({},scope),ctx);if(q.k==='val'){v=q.v;show=true;kind=sk}
         }
         if(fl.count)count=r?r.k:0;
-      }else if(mode==='count'){group(c,depth+1);count=c.children.filter(x=>plain(x.text).trim()).length}
+      }else if(mode==='count'){
+        /* each line underneath counts as 1, a "Label: name, name, name" line counts each name,
+           and a counted heading underneath adds its own count */
+        group(c,depth+1);count=0;
+        for(const x of c.children){
+          const e=EV.get(x.id),n=calcMode(x.text)==='count'?(e?e.count:0):nameCount(x.text);
+          if(e&&calcMode(x.text)!=='count'&&isNameList(x.text))e.names=n;
+          count+=n;
+        }
+      }
       else{
         const expr=t,ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,prev};
         const isDef=ASSIGN.test(expr),sk=summaryKind(expr,scope);
@@ -1116,9 +1143,12 @@ function fillChips(els,e,mode){
       b.title=e.kind==='total'?'Total of the items above. Tap to copy':e.kind==='avg'?'Average of the items above. Tap to copy':'Copy result'}
     b.classList.toggle('tot',v!=null&&e.kind==='total');b.classList.toggle('avgv',v!=null&&e.kind==='avg');
   }
-  const cn=e?e.count:0;
-  if(els.c){if(cn){els.c.hidden=false;els.c.textContent=cn+(cn===1?' item':' items');els.c.title=mode==='count'?'Items directly under this one, not counting empty ones':'Items under this one that have an amount'}else els.c.hidden=true}
-  return v!=null||!!cn;
+  const cn=e?e.count:0,nm=e&&!cn&&e.names?e.names:0;
+  if(els.c){
+    if(cn){els.c.hidden=false;els.c.textContent='('+cn+')';els.c.title=mode==='count'?'Lines under this one, counting each name in a "Label: name, name" line':'Items under this one that have an amount'}
+    else if(nm){els.c.hidden=false;els.c.textContent='('+nm+')';els.c.title=nm+(nm===1?' name':' names')+' on this line'}
+    else els.c.hidden=true}
+  return v!=null||!!cn||!!nm;
 }
 function refreshResults(){
   evaluate(cur().root);
@@ -2134,7 +2164,7 @@ function outlineText(n,depth){
   return n.children.map(c=>{
     const pad='  '.repeat(depth);
     let s=pad+'- '+(c.done?'[x] ':'')+c.text;
-    {const e=EV.get(c.id);if(e&&e.show&&e.v!=null)s+=' '+rawNum(e.v);if(e&&e.count)s+=' ('+e.count+(e.count===1?' item':' items')+')'}
+    {const e=EV.get(c.id);if(e&&e.show&&e.v!=null)s+=' '+rawNum(e.v);if(e&&e.count)s+=' ('+e.count+')'}
     s+='\n';
     if(c.note)s+=c.note.split('\n').map(l=>pad+'    '+l).join('\n')+'\n';
     return s+outlineText(c,depth+1);
