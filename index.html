@@ -302,7 +302,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       </button>
       <label class="search" id="searchWrap">
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="6" cy="6" r="4.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9.3 9.3 12.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <input id="search" type="search" placeholder="Search  ( / )" aria-label="Search" autocomplete="off">
+        <input id="search" type="search" placeholder="Search   9*  tyre*  &quot;exact words&quot;" aria-label="Search" autocomplete="off">
       </label>
       <span class="spacer"></span>
       <button class="btn iconbtn" id="moreBtn" type="button" aria-label="More options" aria-haspopup="true" aria-expanded="false">
@@ -421,7 +421,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt>With items selected</dt><dd>Ctrl+C / Ctrl+X copy or cut them, Tab moves them in, Delete removes them, Esc stops selecting</dd>
       <dt>Drag a bullet's dot</dt><dd>Move the item. On the phone, hold the dot for a moment first</dd>
       <dt><kbd>@</kbd>today</dt><dd>Becomes today's date as a tag</dd>
-      <dt><kbd>/</kbd></dt><dd>Search</dd>
+      <dt><kbd>/</kbd></dt><dd>Search. Several words find lines with all of them. Use * for any characters (9* starts with 9), ? for one character, and "quotes" for an exact phrase</dd>
       <dt><kbd>Esc</kbd></dt><dd>Stop editing, clear search</dd>
     </dl>
     <h3>Maths in bullets</h3>
@@ -1100,7 +1100,29 @@ function textToOutline(text){
 /* ---------- Outline rendering ---------- */
 const list=$('list'),titleEl=$('title');
 const CHEV='<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.2 1.8 6.6 5 3.2 8.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const matches=(n,q)=>(n.text+' '+(n.note||'')).toLowerCase().includes(q);
+/* ---------- Search: words must all appear, "quotes" for a phrase, * for any characters, ? for one.
+   9* finds anything starting with 9, *9 anything ending in 9, tyre* finds tyre and tyres. ---------- */
+const SEP='\\s,;:()\\[\\]{}/"\'|=';
+function compileSearch(q){
+  const terms=[];q.replace(/"([^"]+)"|(\S+)/g,(m,ph,w)=>{terms.push(ph!==undefined?{t:ph,ph:true}:{t:w});return''});
+  const esc2=c=>c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  /* each term is a pattern; wildcard terms start with a captured separator (no lookbehind, so older iPhones work too) */
+  const pats=terms.filter(x=>x.t&&x.t.replace(/[*?]/g,'')).map(x=>{
+    const t=x.t.toLowerCase();
+    if(x.ph||!/[*?]/.test(t))return{src:'()'+esc2(t)};
+    const body=t.split('').map(ch=>ch==='*'?'[^'+SEP+']*':ch==='?'?'[^'+SEP+']':esc2(ch)).join('');
+    const start=t[0]==='*'?'()':'(^|['+SEP+'])',end=t[t.length-1]==='*'?'':'(?=$|['+SEP+'.!])';
+    return{src:start+body+end};
+  });
+  return{
+    test(text){const s=text||'';return pats.length>0&&pats.every(p=>new RegExp(p.src,'iu').test(s))},
+    mark(html){let out=html;pats.forEach(p=>{out=out.replace(new RegExp(p.src,'giu'),(m,pre)=>{const w=m.slice(pre.length);return w?pre+'\u0004'+w+'\u0005':m})});
+      return out.replace(/\u0004/g,'<mark>').replace(/\u0005/g,'</mark>')}
+  };
+}
+let searchCache={q:null,m:null};
+function searchFor(q){if(searchCache.q!==q)searchCache={q,m:compileSearch(q)};return searchCache.m}
+const matches=(n,q)=>searchFor(q).test(n.text+' '+(n.note||''));
 function shown(n,q){
   if(store.settings.hideDone&&n.done)return false;
   if(!q)return true;
@@ -1649,16 +1671,15 @@ function followLink(target){
 }
 function renderGlobal(q){
   const box=document.createElement('div');box.className='gres';
-  const re=new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
-  const hl=t=>esc(t).replace(new RegExp(esc(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>'<mark>'+m+'</mark>');
+  const sm=searchFor(q),hl=t=>sm.mark(esc(t));
   let total=0;
   store.docs.forEach(d=>{
     const hits=[];
     (function w(n,path){n.children.forEach(c=>{
-      if(hits.length<60&&(c.text+' '+(c.note||'')).toLowerCase().includes(q))hits.push({c,path});
+      if(hits.length<60&&sm.test(c.text+' '+(c.note||'')))hits.push({c,path});
       w(c,path.concat(plain(c.text)||'Untitled'));
     })})(d.root,[]);
-    const titleHit=(d.title||'').toLowerCase().includes(q);
+    const titleHit=sm.test(d.title||'');
     if(!hits.length&&!titleHit)return;
     total+=hits.length||1;
     const g=document.createElement('div');g.className='ggroup';
@@ -1668,7 +1689,7 @@ function renderGlobal(q){
     h.addEventListener('click',()=>goTo(d.id,null,false));g.append(h);
     hits.forEach(({c,path})=>{
       const b=document.createElement('button');b.type='button';b.className='ghit';
-      const noteHit=!(c.text.toLowerCase().includes(q));
+      const noteHit=!sm.test(c.text);
       b.innerHTML='<small></small><span></span>';
       b.querySelector('small').textContent=path.length?path.join(' › '):'Top level';
       b.querySelector('span').innerHTML=hl(plain(c.text)||'Untitled')+(noteHit?' <small style="display:inline">(in note)</small>':'');
