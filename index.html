@@ -421,7 +421,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt>With items selected</dt><dd>Ctrl+C / Ctrl+X copy or cut them, Tab moves them in, Delete removes them, Esc stops selecting</dd>
       <dt>Drag a bullet's dot</dt><dd>Move the item. On the phone, hold the dot for a moment first</dd>
       <dt><kbd>@</kbd>today</dt><dd>Becomes today's date as a tag</dd>
-      <dt><kbd>/</kbd></dt><dd>Search. Several words find lines with all of them. Use * for any characters (9* starts with 9), ? for one character, and "quotes" for an exact phrase</dd>
+      <dt><kbd>/</kbd></dt><dd>Search. Several words find lines with all of them. Use * for any characters (9* starts with 9), ? for one character, "quotes" for an exact phrase, -word to leave lines out, OR for either, and is:done or is:open for ticked or unticked items</dd>
       <dt><kbd>Esc</kbd></dt><dd>Stop editing, clear search</dd>
     </dl>
     <h3>Maths in bullets</h3>
@@ -1104,27 +1104,40 @@ const CHEV='<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><
    9* finds anything starting with 9, *9 anything ending in 9, tyre* finds tyre and tyres. ---------- */
 const SEP='\\s,;:()\\[\\]{}/"\'|=';
 function compileSearch(q){
-  const terms=[];q.replace(/"([^"]+)"|(\S+)/g,(m,ph,w)=>{terms.push(ph!==undefined?{t:ph,ph:true}:{t:w});return''});
   const esc2=c=>c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  /* each term is a pattern; wildcard terms start with a captured separator (no lookbehind, so older iPhones work too) */
-  const pats=terms.filter(x=>x.t&&x.t.replace(/[*?]/g,'')).map(x=>{
-    const t=x.t.toLowerCase();
-    if(x.ph||!/[*?]/.test(t))return{src:'()'+esc2(t)};
+  /* a pattern for one term; wildcard terms start with a captured separator (no lookbehind, so older iPhones work too) */
+  const pat=(t,ph)=>{
+    t=t.toLowerCase();
+    if(ph||!/[*?]/.test(t))return'()'+esc2(t);
     const body=t.split('').map(ch=>ch==='*'?'[^'+SEP+']*':ch==='?'?'[^'+SEP+']':esc2(ch)).join('');
-    const start=t[0]==='*'?'()':'(^|['+SEP+'])',end=t[t.length-1]==='*'?'':'(?=$|['+SEP+'.!])';
-    return{src:start+body+end};
+    return(t[0]==='*'?'()':'(^|['+SEP+'])')+body+(t[t.length-1]==='*'?'':'(?=$|['+SEP+'.!])');
+  };
+  /* OR (or |) splits the search into alternatives; within one, every term must match */
+  const groups=[];let g=null;const next=()=>{g={inc:[],exc:[],done:null};groups.push(g)};next();
+  q.replace(/(-?)"([^"]+)"|(\S+)/g,(m,neg,ph,w)=>{
+    if(w!==undefined&&(w.toUpperCase()==='OR'||w==='|')){if(g.inc.length||g.exc.length||g.done!==null)next();return''}
+    let t=ph!==undefined?ph:w,minus=ph!==undefined?neg==='-':false;
+    if(ph===undefined&&t.length>1&&t[0]==='-'){minus=true;t=t.slice(1)}
+    const lt=t.toLowerCase();
+    if(ph===undefined&&(lt==='is:done'||lt==='is:open')){g.done=(lt==='is:done')!==minus;return''}
+    if(!t.replace(/[*?]/g,''))return'';
+    (minus?g.exc:g.inc).push(pat(t,ph!==undefined));return'';
   });
+  const live=groups.filter(x=>x.inc.length||x.exc.length||x.done!==null);
+  const hit=(src,s)=>new RegExp(src,'iu').test(s);
   return{
-    test(text){const s=text||'';return pats.length>0&&pats.every(p=>new RegExp(p.src,'iu').test(s))},
-    mark(html){let out=html;pats.forEach(p=>{out=out.replace(new RegExp(p.src,'giu'),(m,pre)=>{const w=m.slice(pre.length);return w?pre+'\u0004'+w+'\u0005':m})});
+    wantsDone:live.some(x=>x.done===true),
+    test(text,done){const s=text||'';return live.length>0&&live.some(x=>
+      (x.done===null||!!done===x.done)&&x.inc.every(p=>hit(p,s))&&!x.exc.some(p=>hit(p,s)))},
+    mark(html){let out=html;live.forEach(x=>x.inc.forEach(src=>{out=out.replace(new RegExp(src,'giu'),(m,pre)=>{const w=m.slice(pre.length);return w?pre+'\u0004'+w+'\u0005':m})}));
       return out.replace(/\u0004/g,'<mark>').replace(/\u0005/g,'</mark>')}
   };
 }
 let searchCache={q:null,m:null};
 function searchFor(q){if(searchCache.q!==q)searchCache={q,m:compileSearch(q)};return searchCache.m}
-const matches=(n,q)=>searchFor(q).test(n.text+' '+(n.note||''));
+const matches=(n,q)=>searchFor(q).test(n.text+' '+(n.note||''),n.done);
 function shown(n,q){
-  if(store.settings.hideDone&&n.done)return false;
+  if(store.settings.hideDone&&n.done&&!(q&&searchFor(q).wantsDone))return false;
   if(!q)return true;
   return matches(n,q)||n.children.some(c=>shown(c,q));
 }
@@ -1676,10 +1689,10 @@ function renderGlobal(q){
   store.docs.forEach(d=>{
     const hits=[];
     (function w(n,path){n.children.forEach(c=>{
-      if(hits.length<60&&sm.test(c.text+' '+(c.note||'')))hits.push({c,path});
+      if(hits.length<60&&sm.test(c.text+' '+(c.note||''),c.done))hits.push({c,path});
       w(c,path.concat(plain(c.text)||'Untitled'));
     })})(d.root,[]);
-    const titleHit=sm.test(d.title||'');
+    const titleHit=sm.test(d.title||'',false)&&!sm.wantsDone;
     if(!hits.length&&!titleHit)return;
     total+=hits.length||1;
     const g=document.createElement('div');g.className='ggroup';
@@ -1689,7 +1702,7 @@ function renderGlobal(q){
     h.addEventListener('click',()=>goTo(d.id,null,false));g.append(h);
     hits.forEach(({c,path})=>{
       const b=document.createElement('button');b.type='button';b.className='ghit';
-      const noteHit=!sm.test(c.text);
+      const noteHit=!sm.test(c.text,c.done);
       b.innerHTML='<small></small><span></span>';
       b.querySelector('small').textContent=path.length?path.join(' › '):'Top level';
       b.querySelector('span').innerHTML=hl(plain(c.text)||'Untitled')+(noteHit?' <small style="display:inline">(in note)</small>':'');
