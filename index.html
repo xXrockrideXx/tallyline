@@ -429,6 +429,9 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
       <dt><code>Fuel =:</code></dt><dd>Total of the items under it, with a count. Add-ons go after the =</dd>
       <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon). A line like <code>Technical: Bonolo, Jaco</code> counts each name, and <code>101: 1,3,5</code> or <code>301: 1-10</code> counts each number. Add a comment after a semicolon: <code>101: 1-3; PTU loose</code>. Counts show in brackets, like (15)</dd>
+      <dt><code>2026.12.25 - today =</code></dt><dd>Days between dates. Also 2026.11.01 + 30 = for a date 30 days later</dd>
+      <dt><code>17:15 - 07:30 =</code></dt><dd>Hours and minutes (9:45). A heading with = adds up hours underneath</dd>
+      <dt><code>payday = 2026.11.25</code></dt><dd>Dates work as variables. today and now are always available</dd>
       <dt><code>rate = 850</code></dt><dd>A variable for every bullet below it</dd>
       <dt><code>spent =</code></dt><dd>A one-word name before = keeps the total as a variable</dd>
       <dt><code>sum</code></dt><dd>Adds the items since the previous sum (a subtotal), shown in teal</dd>
@@ -495,28 +498,45 @@ const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slic
 const mk=(text,extra)=>Object.assign({id:uid(),text:text||'',children:[]},extra||{});
 
 /* ---------- Calculator engine ---------- */
+/* Values are plain numbers, or typed:
+   {u:'date', v: days since 1970 (fraction = time of day), tm: has a time}
+   {u:'dur',  v: minutes, st: 'hm' (9:45) | 'days' (54 days) | 'dhm' (2 days 10:30)} */
 const Calc=(()=>{
   const avg=(...a)=>a.length?a.reduce((s,x)=>s+x,0)/a.length:NaN;
   const FUN={sqrt:Math.sqrt,abs:Math.abs,floor:Math.floor,ceil:Math.ceil,min:Math.min,max:Math.max,
     round:(x,d)=>{const f=Math.pow(10,d||0);return Math.round(x*f)/f},
     sin:Math.sin,cos:Math.cos,tan:Math.tan,log:Math.log10,ln:Math.log,exp:Math.exp,
     sum:(...a)=>a.reduce((s,x)=>s+x,0),avg,average:avg};
+  const KEEPUNIT={abs:1,min:1,max:1,round:1,floor:1,ceil:1};
   const CONST={pi:Math.PI,e:Math.E};
   const WORDOP={plus:'+',minus:'-',times:'*',per:'/',divided:'/',of:'of',off:'off',mod:'mod'};
+  const dayNo=(y,m,d)=>Date.UTC(y,m-1,d)/864e5;
+  function nowVal(withTime){const n=new Date();const d=dayNo(n.getFullYear(),n.getMonth()+1,n.getDate());
+    return withTime?{v:d+(n.getHours()*60+n.getMinutes())/1440,u:'date',tm:true}:{v:d,u:'date',tm:false}}
+  const tok=x=>typeof x==='object'&&x?Object.assign({t:'n'},x):{t:'n',v:x};
   function tokenize(s){
     const T=[];let i=0;
     while(i<s.length){
       const c=s[i];
       if(/\s/.test(c)){i++;continue}
       if(/[R$€£]/.test(c)&&/[\d.]/.test(s[i+1]||'')&&!/[A-Za-z0-9_]/.test(s[i-1]||'')){i++;continue}
-      const m=s.slice(i).match(/^(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/);
+      const rest=s.slice(i);
+      /* 2026.11.01, 2026-11-01 or 2026/11/01, optionally followed by a time */
+      const dm=/[\d.]/.test(s[i-1]||'')?null:rest.match(/^(\d{4})([.\-\/])(\d{1,2})\2(\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?(?![\d.])/);
+      if(dm&&+dm[3]>=1&&+dm[3]<=12&&+dm[4]>=1&&+dm[4]<=new Date(Date.UTC(+dm[1],+dm[3],0)).getUTCDate()&&(dm[5]==null||(+dm[5]<24&&+dm[6]<60))){
+        const tm=dm[5]!=null;T.push({t:'n',u:'date',tm,v:dayNo(+dm[1],+dm[3],+dm[4])+(tm?(+dm[5]*60+ +dm[6])/1440:0)});i+=dm[0].length;continue;
+      }
+      /* 17:15 is a time of day, or a duration of hours and minutes */
+      const tmm=/[\d.:]/.test(s[i-1]||'')?null:rest.match(/^(\d{1,3}):(\d{2})(?![\d:])/);
+      if(tmm&&+tmm[2]<60){T.push({t:'n',u:'dur',st:'hm',v:+tmm[1]*60+ +tmm[2]});i+=tmm[0].length;continue}
+      const m=rest.match(/^(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/);
       if(m){
         let v=parseFloat(m[0].replace(/,/g,''));i+=m[0].length;
         const suf=s.slice(i).match(/^(k|K|mil|bn)(?![A-Za-z0-9_])/);
         if(suf){v*={k:1e3,K:1e3,mil:1e6,bn:1e9}[suf[1]];i+=suf[1].length}
         T.push({t:'n',v});continue;
       }
-      const w=s.slice(i).match(/^[A-Za-z_][A-Za-z0-9_]*/);
+      const w=rest.match(/^[A-Za-z_][A-Za-z0-9_]*/);
       if(w){
         const x=w[0],lx=x.toLowerCase();i+=x.length;
         const prev=T[T.length-1];
@@ -539,23 +559,39 @@ const Calc=(()=>{
       const tk=T[i];
       if(tk.t!=='id'){out.push(tk);continue}
       const n=tk.v,ln=n.toLowerCase();
-      if(T[i+1]&&T[i+1].t==='('&&FUN[ln]){out.push({t:'f',fn:FUN[ln]});continue}
-      if(Object.prototype.hasOwnProperty.call(scope,n)){out.push({t:'n',v:scope[n]});continue}
-      if(ln==='sum'&&ctx.seg!=null){out.push({t:'n',v:ctx.seg});continue}
-      if(ln==='sum'||ln==='total'){if(ctx.sum==null)throw 0;out.push({t:'n',v:ctx.sum});continue}
-      if(ln==='avg'||ln==='average'){if(!ctx.count)throw 0;out.push({t:'n',v:ctx.sum/ctx.count});continue}
-      if(ln==='prev'||ln==='ans'){if(ctx.prev==null)throw 0;out.push({t:'n',v:ctx.prev});continue}
+      if(T[i+1]&&T[i+1].t==='('&&FUN[ln]){out.push({t:'f',fn:FUN[ln],keep:!!KEEPUNIT[ln]});continue}
+      if(Object.prototype.hasOwnProperty.call(scope,n)){out.push(tok(scope[n]));continue}
+      if(ln==='sum'&&ctx.seg!=null){out.push(tok(ctx.seg));continue}
+      if(ln==='sum'||ln==='total'){if(ctx.sum==null)throw 0;out.push(tok(ctx.sum));continue}
+      if(ln==='avg'||ln==='average'){if(!ctx.count)throw 0;const sm=ctx.sum;
+        out.push(typeof sm==='object'?tok(Object.assign({},sm,{v:sm.v/ctx.count})):{t:'n',v:sm/ctx.count});continue}
+      if(ln==='prev'||ln==='ans'){if(ctx.prev==null)throw 0;out.push(tok(ctx.prev));continue}
+      if(ln==='today'){out.push(tok(nowVal(false)));continue}
+      if(ln==='now'){out.push(tok(nowVal(true)));continue}
       if(CONST[ln]!=null){out.push({t:'n',v:CONST[ln]});continue}
       /* any other word is treated as plain text */
     }
     return out;
   }
+  const plainV=x=>!x.u;
+  function addTyped(l,r,sign){
+    if(l.u==='date'&&plainV(r))return{v:l.v+sign*r.v,u:'date',tm:l.tm||!Number.isInteger(r.v)};
+    if(l.u==='date'&&r.u==='dur')return{v:l.v+sign*r.v/1440,u:'date',tm:l.tm||r.v%1440!==0};
+    if(l.u==='date'&&r.u==='date'&&sign<0)return{v:Math.round((l.v-r.v)*1440),u:'dur',st:(l.tm||r.tm)?'dhm':'days'};
+    if(plainV(l)&&r.u==='date'&&sign>0)return{v:r.v+l.v,u:'date',tm:r.tm};
+    if(l.u==='dur'&&r.u==='dur')return{v:l.v+sign*r.v,u:'dur',st:l.st===r.st?l.st:(l.st==='hm'||r.st==='hm'?'hm':'dhm')};
+    if(l.u==='dur'&&plainV(r))return{v:l.v+sign*r.v*(l.st==='days'?1440:60),u:'dur',st:l.st};
+    if(plainV(l)&&r.u==='dur')return{v:l.v*(r.st==='days'?1440:60)+sign*r.v,u:'dur',st:r.st};
+    throw 0;
+  }
   function parse(T){
     let p=0;const is=k=>T[p]&&T[p].t===k;
+    const typed=(x,extra)=>Object.assign({v:x.v,u:x.u,tm:x.tm,st:x.st},extra||{});
     function add(){
       let l=mul();
       while(is('+')||is('-')){
         const op=T[p++].t,r=mul();
+        if(l.u||r.u){if(r.pct||l.pct)throw 0;l=addTyped(l,r,op==='+'?1:-1);continue}
         if(r.pct&&!l.pct)l={v:op==='+'?l.v*(1+r.v):l.v*(1-r.v)};
         else l={v:op==='+'?l.v+r.v:l.v-r.v,pct:l.pct&&r.pct};
       }
@@ -565,6 +601,14 @@ const Calc=(()=>{
       let l=unary();
       while(is('*')||is('/')||is('of')||is('off')||is('mod')){
         const op=T[p++].t,r=unary();
+        if(l.u||r.u){
+          if(op==='*'&&l.u==='dur'&&plainV(r))l=typed(l,{v:l.v*r.v});
+          else if(op==='*'&&plainV(l)&&r.u==='dur')l=typed(r,{v:l.v*r.v});
+          else if(op==='/'&&l.u==='dur'&&plainV(r))l=typed(l,{v:l.v/r.v});
+          else if(op==='/'&&l.u==='dur'&&r.u==='dur')l={v:l.v/r.v};
+          else throw 0;
+          continue;
+        }
         if(op==='*'||op==='of')l={v:l.v*r.v};
         else if(op==='/')l={v:l.v/r.v};
         else if(op==='mod')l={v:l.v%r.v};
@@ -573,25 +617,37 @@ const Calc=(()=>{
       return l;
     }
     function unary(){
-      if(is('-')){p++;const r=unary();return{v:-r.v,pct:r.pct}}
+      if(is('-')){p++;const r=unary();if(r.u==='date')throw 0;return Object.assign({},r,{v:-r.v})}
       if(is('+')){p++;return unary()}
       return pow();
     }
-    function pow(){const b=post();if(is('^')){p++;const e=unary();return{v:Math.pow(b.v,e.v)}}return b}
-    function post(){let x=prim();while(is('%')){p++;x={v:x.v/100,pct:true}}return x}
+    function pow(){const b=post();if(is('^')){p++;const e=unary();if(b.u||e.u)throw 0;return{v:Math.pow(b.v,e.v)}}return b}
+    function post(){let x=prim();while(is('%')){if(x.u)throw 0;p++;x={v:x.v/100,pct:true}}return x}
     function prim(){
       const tk=T[p++];if(!tk)throw 0;
-      if(tk.t==='n')return{v:tk.v};
-      if(tk.t==='('){const x=add();if(!is(')'))throw 0;p++;return{v:x.v,pct:x.pct}}
+      if(tk.t==='n')return typed(tk);
+      if(tk.t==='('){const x=add();if(!is(')'))throw 0;p++;return Object.assign({},x)}
       if(tk.t==='f'){
         if(!is('('))throw 0;p++;const args=[];
-        if(!is(')')){args.push(add().v);while(is(',')){p++;args.push(add().v)}}
+        if(!is(')')){args.push(add());while(is(',')){p++;args.push(add())}}
         if(!is(')'))throw 0;p++;
-        return{v:tk.fn(...args)};
+        const u=args.find(a=>a.u);
+        if(!u)return{v:tk.fn(...args.map(a=>a.v))};
+        if(!tk.keep||args.some(a=>a.u&&a.u!==u.u))throw 0;
+        return typed(u,{v:tk.fn(...args.map(a=>a.v))});
       }
       throw 0;
     }
     const r=add();if(p<T.length)throw 0;return r;
+  }
+  /* the label ends at the first colon that is not part of a time: "Start: 07:30", "Mon: 9:45", "@2026.10.30: 25" */
+  function splitLabel(s){
+    for(let i=s.indexOf(':');i>=0;i=s.indexOf(':',i+1)){
+      const before=s.slice(0,i),after=s.slice(i+1);
+      if(/(^|[\s(+*\/=])\d{1,3}$/.test(before)&&/^\d{2}(?!\d)/.test(after))continue;
+      return /[A-Za-z@#!]|\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2}/.test(before)?after:null;
+    }
+    return null;
   }
   function line(raw,scope,ctx){
     const tr=(raw||'').trim();
@@ -602,15 +658,15 @@ const Calc=(()=>{
     let name=null;
     const a=s.match(/^\s*([A-Za-z_]\w*)\s*=(?!=)(.*)$/);
     if(a){name=a[1];s=a[2]}
-    const lab=s.match(/^([^:]*[A-Za-z][^:]*):(.*)$/);
-    if(lab)s=lab[2];
+    const lab=splitLabel(s);
+    if(lab!=null)s=lab;
     try{
       const T=resolve(tokenize(s),scope,ctx);
       if(!T.length)return{k:'text'};
       const r=parse(T);
       if(typeof r.v!=='number'||Number.isNaN(r.v))return{k:'text'};
-      if(name)scope[name]=r.v;
-      return{k:'val',v:r.v,name};
+      if(name)scope[name]=r.u?{v:r.v,u:r.u,tm:r.tm,st:r.st}:r.v;
+      return{k:'val',v:r.v,u:r.u,tm:r.tm,st:r.st,name};
     }catch(e){return{k:'text'}}
   }
   function sheet(lines){
@@ -618,7 +674,7 @@ const Calc=(()=>{
     return lines.map(l=>{
       const ctx={sum:block.reduce((s,x)=>s+x,0),count:block.length,prev};
       const r=line(l,scope,ctx);
-      if(r.k==='val'){block.push(r.v);prev=r.v}
+      if(r.k==='val'&&!r.u){block.push(r.v);prev=r.v}
       else if(r.k==='blank'||r.k==='head')block=[];
       return r;
     });
@@ -636,6 +692,21 @@ function fmt(v){
   return (neg?'−':'')+i+(d?'.'+d:'');
 }
 const rawNum=v=>isFinite(v)?String(Math.round(v*1e6)/1e6):String(v);
+const pad2=n=>String(n).padStart(2,'0');
+function fmtDate(v,tm){
+  const d=new Date(Math.round(v*1440)*60000);
+  return d.getUTCFullYear()+'.'+pad2(d.getUTCMonth()+1)+'.'+pad2(d.getUTCDate())+(tm?' '+pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes()):'');
+}
+function fmtDur(min,st){
+  const neg=min<0,m=Math.round(Math.abs(min));let out;
+  if(st==='days'){const d=Math.round(m/1440*100)/100;out=fmt(d)+(d===1?' day':' days')}
+  else if(st==='dhm'){const d=Math.floor(m/1440),r=m%1440;out=(d?d+(d===1?' day ':' days '):'')+Math.floor(r/60)+':'+pad2(r%60)}
+  else out=Math.floor(m/60)+':'+pad2(m%60);
+  return(neg?'−':'')+out;
+}
+/* show and copy a value of any kind: number, date or duration */
+const fmtVal=x=>x.u==='date'?fmtDate(x.v,x.tm):x.u==='dur'?fmtDur(x.v,x.st):fmt(x.v);
+const rawVal=x=>x.u?fmtVal(x).replace('−','-'):rawNum(x.v);
 
 /* ---------- Storage ---------- */
 let store,storageOK=true,saveT=null;
@@ -666,7 +737,7 @@ function seed(){
     N('Put away: 20% of left ='),
     N('After saving: left - prev =')
   ]}};
-  return{v:9,docs:[outline,more,budget],activeId:outline.id,settings:{hideDone:false}};
+  return{v:10,docs:[outline,more,budget],activeId:outline.id,settings:{hideDone:false}};
 }
 /* newer parts of the Getting started example; also added to existing copies (see load) */
 function basicsExtra(N){
@@ -697,10 +768,20 @@ function handyExtras(N){
     N('Open the Month-end budget example to see variables, totals and prev working together')
   ]);
 }
+function datesSection(N){
+  return N('Dates and times: write dates as 2026.11.25, times as 17:15',[
+    N('payday = 2026.11.25'),
+    N('Days to payday: payday - today ='),
+    N('Service due: 2026.11.01 + 90 ='),
+    N('Shift: 17:15 - 07:30 ='),
+    N('Hours this week =:',[N('Mon: 9:45'),N('Tue: 8:30'),N('Wed: 17:00 - 08:15')]),
+    N('Tag a day with @ followed by today, e.g. @2026.11.01, then search @2026.11* for the whole month')
+  ]);
+}
 function moreDoc(N){
   return{id:uid(),type:'outline',title:'More things to try (example)',zoom:'root',root:{id:'root',text:'',children:[
     N('More examples to try out. Edit or delete anything here.'),
-    moreMaths(N),budgetSection(N),...newSections(N),handyExtras(N)
+    moreMaths(N),budgetSection(N),datesSection(N),...newSections(N),handyExtras(N)
   ]}};
 }
 function newSections(N){
@@ -848,6 +929,16 @@ function load(){
     });
     store.v=9;
   }
+  if(!(store.v>=10)){
+    /* add the dates and times example once */
+    const md=store.docs.find(d=>d.root&&/^more things to try/i.test(d.title||''));
+    if(md&&!md.root.children.some(k=>/^Dates and times/.test(k.text))){
+      const N=(t,kids,extra)=>mk(t,Object.assign({children:kids||[]},extra||{}));
+      const k=md.root.children,at=k.findIndex(x=>/^(Spending|Budget vs actual)/i.test(x.text));
+      k.splice(at>=0?at+1:k.length,0,datesSection(N));
+    }
+    store.v=10;
+  }
   if(!store.docs.some(d=>d.id===store.activeId))store.activeId=store.docs[0].id;
   store.trash=(store.trash||[]).filter(t=>t&&t.doc&&Date.now()-t.at<30*864e5);
   ensureFolders();
@@ -875,7 +966,7 @@ function fmtText(t){
   s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
      .replace(/(^|[^*\w])\*([^*\s](?:[^*]*[^*\s])?)\*(?![*\w])/g,'$1<i>$2</i>')
      .replace(/~~([^~]+)~~/g,'<s>$1</s>')
-     .replace(/(^|\s)([#@][\p{L}\p{N}_-]+)/gu,'$1<span class="tag" data-tag="$2">$2</span>');
+     .replace(/(^|\s)([#@][\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*)/gu,'$1<span class="tag" data-tag="$2">$2</span>');
   s=s.replace(/\u0001(\d+)\u0001/g,(m,i)=>`<a href="${links[i]}" target="_blank" rel="noopener">${links[i]}</a>`);
   s=s.replace(/\u0000(\d+)\u0000/g,(m,i)=>`<code>${codes[i]}</code>`);
   s=s.replace(/\u0003(\d+)\u0003/g,(m,i)=>`<span class="ilink" data-link="${wl[i]}">${wl[i]}</span>`);
@@ -970,7 +1061,7 @@ let EV=new Map();
 function summaryKind(expr,scope){
   let x=(expr||'').replace(/\/\/.*$/,'');
   const a=x.match(/^\s*[A-Za-z_]\w*\s*=(?!=)(.*)$/);if(a)x=a[1];
-  const lab=x.match(/^([^:]*[A-Za-z][^:]*):(.*)$/);if(lab)x=lab[2];
+  const lab=x.match(/^([^:]*(?:[A-Za-z@#!]|\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})[^:]*):(.*)$/);if(lab)x=lab[2];
   const has=re=>{for(const m of x.matchAll(re))if(!Object.prototype.hasOwnProperty.call(scope,m[1]))return true;return false};
   if(has(/\b(total)\b(?!\s*\()/gi))return'total';
   if(has(/\b(sum)\b(?!\s*\()/gi))return'sum';
@@ -997,6 +1088,13 @@ function listCount(t){
 }
 const isNameList=t=>listCount(t)!=null;
 function nameCount(t){if(!plain(t).trim())return 0;const n=listCount(t);return n!=null?n:1}
+/* adds up a list of values: hours add up as hours, plain numbers as numbers; dates are not added */
+function sumOf(list){
+  const durs=list.filter(x=>x.u==='dur'),nums=list.filter(x=>!x.u);
+  if(durs.length&&!nums.length)return{val:{v:durs.reduce((p,x)=>p+x.v,0),u:'dur',st:durs.every(x=>x.st==='days')?'days':durs.every(x=>x.st==='dhm'||x.st==='days')?'dhm':'hm'},k:durs.length};
+  return{val:nums.reduce((p,x)=>p+x.v,0),k:nums.length};
+}
+const asVal=x=>x.u?{v:x.v,u:x.u,tm:x.tm,st:x.st}:x.v;
 function evaluate(root){
   EV=new Map();const scope={};
   (function group(n,depth){
@@ -1005,21 +1103,19 @@ function evaluate(root){
     const block=[];let seg=[],prev=null;
     for(const c of n.children){
       const t=c.text.trim(),mode=calcMode(t);
-      let v=null,show=false,count=0,kind=null;
-      const kids=()=>{
-        group(c,depth+1);let s=0,k=0;
-        for(const x of c.children){const e=EV.get(x.id);if(!e||e.kind||e.v==null)continue;s+=e.v;k++}
-        return{s,k};
-      };
-      const fromKids=r=>{v=r.k?r.s:null};
+      let v=null,u,tm,st,show=false,count=0,kind=null;
+      const take=x=>{v=x.v;u=x.u;tm=x.tm;st=x.st};
+      const kids=()=>{group(c,depth+1);return sumOf(c.children.map(x=>EV.get(x.id)).filter(e=>e&&!e.kind&&e.v!=null&&e.u!=='date'))};
+      const fromKids=r=>{if(r.k)take(typeof r.val==='object'?r.val:{v:r.val})};
+      const mkctx=()=>{const b=sumOf(block),g=sumOf(seg);return{sum:b.val,count:b.k,seg:g.val,prev}};
       const fl=eqFlags(t);
       if(fl){
-        const ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,seg:seg.reduce((p,x)=>p+x,0),prev};
+        const ctx=mkctx();
         const r=c.children.length?kids():null;
-        if(r&&r.k){fromKids(r);show=true;const nm=fl.expr.match(/^\s*([A-Za-z_]\w*)\s*$/);if(nm&&v!=null)scope[nm[1]]=v}
+        if(r&&r.k){fromKids(r);show=true;const nm=fl.expr.match(/^\s*([A-Za-z_]\w*)\s*$/);if(nm&&v!=null)scope[nm[1]]=asVal({v,u,tm,st})}
         else if(!(fl.count&&c.children.length)){
           const isDef=ASSIGN.test(fl.expr),sk=summaryKind(fl.expr,scope);
-          const q=Calc.line(fl.expr,isDef?scope:Object.assign({},scope),ctx);if(q.k==='val'){v=q.v;show=true;kind=sk}
+          const q=Calc.line(fl.expr,isDef?scope:Object.assign({},scope),ctx);if(q.k==='val'){take(q);show=true;kind=sk}
         }
         if(fl.count)count=r?r.k:0;
       }else if(mode==='count'){
@@ -1033,14 +1129,14 @@ function evaluate(root){
         }
       }
       else{
-        const expr=t,ctx={sum:block.reduce((p,x)=>p+x,0),count:block.length,seg:seg.reduce((p,x)=>p+x,0),prev};
+        const expr=t,ctx=mkctx();
         const isDef=ASSIGN.test(expr),sk=summaryKind(expr,scope);
-        const r=Calc.line(expr,isDef?scope:Object.assign({},scope),ctx);if(r.k==='val'){v=r.v;show=isDef;kind=sk}
+        const r=Calc.line(expr,isDef?scope:Object.assign({},scope),ctx);if(r.k==='val'){take(r);show=isDef;kind=sk}
         group(c,depth+1);
       }
-      EV.set(c.id,{v,show,count,kind});
-      /* a total or average is not counted again by later totals or by the heading above */
-      if(v!=null){if(!kind){block.push(v);seg.push(v)}prev=v}
+      EV.set(c.id,{v,u,tm,st,show,count,kind});
+      /* a total or average is not counted again by later totals or by the heading above; dates are never added */
+      if(v!=null){const val={v,u,tm,st};if(!kind&&u!=='date'){block.push(val);seg.push(val)}prev=asVal(val)}
       if(kind==='sum')seg=[];
     }
   })(root,0);
@@ -1182,7 +1278,7 @@ function fillChips(els,e,mode){
   const on=!!(e&&e.show),v=on?e.v:null,b=els.b;
   if(b){
     if(v==null)b.hidden=true;
-    else{b.hidden=false;b.textContent=fmt(v);b.dataset.raw=rawNum(v);
+    else{b.hidden=false;b.textContent=fmtVal(e);b.dataset.raw=rawVal(e);
       b.title=e.kind==='total'?'Total of everything above. Tap to copy':e.kind==='sum'?'Sum of the items since the previous sum. Tap to copy':e.kind==='avg'?'Average of the items above. Tap to copy':'Copy result'}
     b.classList.toggle('tot',v!=null&&(e.kind==='total'||e.kind==='sum'));b.classList.toggle('avgv',v!=null&&e.kind==='avg');
   }
@@ -1557,7 +1653,7 @@ function zoomOut(){const d=cur();if(d.zoom==='root')return;const p=par(d.zoom);c
 
 /* ---------- Suggestions: # and @ list tags used before, [[ lists items and documents to link to ---------- */
 const tagPop=$('tagPop');
-const TAGRE=/(^|\s)([#@][\p{L}\p{N}_-]+)/gu;
+const TAGRE=/(^|\s)([#@][\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*)/gu;
 let tagUI={el:null,start:0,end:0,items:[],i:0};
 function hideTags(){if(!tagPop.hidden)tagPop.hidden=true;tagUI.el=null}
 function knownTags(skipId,extra){
@@ -1591,10 +1687,10 @@ function tagCheck(t){
     start=a-lm[1].length-2;end=a+(txt.slice(a).startsWith(']]')?2:0);
     items=linkItems(lm[1],t.dataset.id);
   }else{
-    const m=before.match(/(^|\s)([#@])([\p{L}\p{N}_-]*)$/u);
+    const m=before.match(/(^|\s)([#@])([\p{L}\p{N}_.-]*)$/u);
     if(!m){hideTags();return}
     const sym=m[2],typed=m[3].toLowerCase();start=a-1-m[3].length;
-    end=a+txt.slice(a).match(/^[\p{L}\p{N}_-]*/u)[0].length;
+    end=a+txt.slice(a).match(/^[\p{L}\p{N}_.-]*/u)[0].length;
     const word=txt.slice(start+1,end).toLowerCase();
     items=[...knownTags(t.dataset.id,txt.slice(0,start)+txt.slice(end)).values()]
       .filter(x=>x.tag[0]===sym&&x.tag.slice(1).toLowerCase().startsWith(typed)&&x.tag.slice(1).toLowerCase()!==word)
@@ -2110,7 +2206,7 @@ function copyForExcel(){
   (function w(list,depth){list.forEach(n=>{
     if(store.settings.hideDone&&n.done)return;
     const e=EV.get(n.id)||{};
-    rows.push(['  '.repeat(depth)+excelLabel(n,e.v!=null).replace(/\t/g,' '),e.v!=null?rawNum(e.v):'']);
+    rows.push(['  '.repeat(depth)+excelLabel(n,e.v!=null).replace(/\t/g,' '),e.v!=null?rawVal(e):'']);
     w(n.children,depth+1);
   })})(roots,0);
   if(!rows.length){toast('Nothing to copy');return}
@@ -2173,7 +2269,7 @@ list.addEventListener('click',e=>{if(state.justDragged&&Date.now()-state.justDra
 list.addEventListener('contextmenu',e=>{if(e.target.closest('.dot'))e.preventDefault()});
 
 /* ---------- @today becomes the date ---------- */
-function todayTag(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function todayTag(){const d=new Date();return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0')}
 list.addEventListener('input',e=>{
   const t=e.target;if(!t.classList||!t.classList.contains('txt'))return;
   const n=node(t.dataset.id);if(!n||!/(^|\s)@today\s/i.test(n.text))return;
@@ -2206,7 +2302,7 @@ function outlineText(n,depth){
   return n.children.map(c=>{
     const pad='  '.repeat(depth);
     let s=pad+'- '+(c.done?'[x] ':'')+c.text;
-    {const e=EV.get(c.id);if(e&&e.show&&e.v!=null)s+=' '+rawNum(e.v);if(e&&e.count)s+=' ('+e.count+')'}
+    {const e=EV.get(c.id);if(e&&e.show&&e.v!=null)s+=' '+rawVal(e);if(e&&e.count)s+=' ('+e.count+')'}
     s+='\n';
     if(c.note)s+=c.note.split('\n').map(l=>pad+'    '+l).join('\n')+'\n';
     return s+outlineText(c,depth+1);
