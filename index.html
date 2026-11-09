@@ -151,6 +151,15 @@ button{font:inherit;color:inherit}
 .res.avgv{color:var(--avg);background:var(--avg-soft)}
 .chips{flex:none;margin-left:auto;margin-top:4px;display:inline-flex;flex-wrap:nowrap;justify-content:flex-end;align-items:center;gap:4px 6px;max-width:60%}
 .chips:not(:has(> :not([hidden]))){display:none}
+.cnt.qchip{cursor:pointer}
+.cnt.qchip:hover,.cnt.qchip.open{border-color:var(--accent);color:var(--accent)}
+.qlist{display:flex;flex-direction:column;margin:2px 0 6px;border-left:2px solid var(--accent-soft);padding-left:8px}
+.qitem{display:flex;align-items:baseline;justify-content:space-between;gap:10px;text-align:left;border:0;background:none;border-radius:6px;padding:3px 6px;cursor:pointer;font-size:13.5px;line-height:20px;color:var(--ink)}
+.qitem:hover{background:var(--rowfocus)}
+.qitem span{min-width:0;word-break:break-word}
+.qitem small{flex:none;color:var(--faint);font-size:11.5px}
+.qitem.done span{color:var(--faint);text-decoration:line-through}
+.qnone{font-size:13px;color:var(--faint);padding:3px 6px}
 .zoomres{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px;margin:-12px 0 20px}
 .zoomres .res{font-size:15px;line-height:26px;padding:0 9px}
 .zoomres .cnt{font-size:13px;line-height:24px}
@@ -444,7 +453,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <dl class="keys">
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
       <dt><code>Fuel =:</code></dt><dd>Total of the items under it, with a count. Add-ons go after the =</dd>
-      <dt><code>?? 1% :</code></dt><dd>A query: counts the entries in its section (the heading above with : or =) that match. % is a wildcard: 1% starts with 1, %door% contains door. OR, -word and is:open work too</dd>
+      <dt><code>?? 1% :</code></dt><dd>A query: counts the matching entries in its section (the heading above with : or =). Tap the count to list them. Add in:NS to look under one heading instead, or in:all for every document. % is a wildcard: 1% starts with 1, %door% contains door. OR, -word and is:open work too</dd>
       <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon). A line like <code>Technical: Bonolo, Jaco</code> counts each name, and <code>101: 1,3,5</code> or <code>301: 1-10</code> counts each number. Add a comment after a semicolon: <code>101: 1-3; PTU loose</code>. Counts show in brackets, like (15)</dd>
       <dt><code>2026.12.25 - today =</code></dt><dd>Days between dates. Also 2026.11.01 + 30 = for a date 30 days later</dd>
       <dt><code>17:15 - 07:30 =</code></dt><dd>Hours and minutes (9:45). A heading with = adds up hours underneath</dd>
@@ -1115,25 +1124,38 @@ function sumOf(list){
   return{val:nums.reduce((p,x)=>p+x.v,0),k:nums.length};
 }
 const asVal=x=>x.u?{v:x.v,u:x.u,tm:x.tm,st:x.st}:x.v;
-/* ---------- Queries: "?? 1% :" counts the entries in its section that match.
-   % (or *) is a wildcard; the search box rules apply too (OR, -word, is:open, is:done). ---------- */
+/* ---------- Queries: "?? 1% :" counts the matching entries in its section: the nearest heading above
+   that ends with : or = (otherwise the whole document). in:NS looks under that heading instead, in:all in every document.
+   % (or *) is a wildcard; the search box rules apply too (OR, -word, is:open, is:done). Tap the count to list the matches. ---------- */
 const isQuery=t=>/^\s*\?\?/.test(t||'');
 const queryText=t=>t.replace(/^\s*\?\?\s*/,'').replace(/\s*:\s*$/,'').trim();
 /* a heading whose sub-items are all queries is just a holder for them, and is not counted itself */
 const isQueryHolder=x=>x.children.length>0&&x.children.every(k=>isQuery(k.text)||!k.text.trim());
-function queryCount(c,root){
-  const q=queryText(c.text);if(!q)return null;
+const headName=t=>plain(t).replace(/\s*(?:=[:%]*|:=%?|:)\s*$/,'').trim().toLowerCase();
+function queryRun(c,root){
+  let q=queryText(c.text);const ins=[];
+  q=q.replace(/(^|\s)in:(?:"([^"]+)"|(\S+))/gi,(m,sp,a,b)=>{ins.push((a||b).toLowerCase());return' '}).trim();
+  if(!q)return null;
   const m=compileSearch(q);
-  /* the section is the nearest heading above that counts or totals; otherwise the whole document */
-  let scope=null;for(let p=par(c.id);p;p=par(p.id)){if(p.id==='root'||calcMode(p.text)){scope=p;break}}
-  scope=scope||root;
-  let n=0;
-  (function w(x){x.children.forEach(k=>{
-    if(isQuery(k.text)||isQueryHolder(k))return;
-    if(!k.children.length&&k.text.trim()&&m.test(k.text+' '+(k.note||''),k.done))n++;
-    w(k);
-  })})(scope);
-  return n;
+  let scopes;
+  if(ins.includes('all'))scopes=store.docs.map(d=>({root:d.root,doc:d}));
+  else if(ins.length){
+    const all=[];(function w(x){x.children.forEach(k=>{all.push(k);w(k)})})(root);
+    scopes=[];
+    ins.forEach(name=>{let hit=all.filter(k=>k.children.length&&headName(k.text)===name);
+      if(!hit.length)hit=all.filter(k=>k.children.length&&headName(k.text).startsWith(name));
+      hit.forEach(h=>scopes.push({root:h}))});
+  }else{
+    let scope=null;for(let p=par(c.id);p;p=par(p.id)){if(p.id==='root'||calcMode(p.text)){scope=p;break}}
+    scopes=[{root:scope||root}];
+  }
+  const seen=new Set(),hits=[];
+  scopes.forEach(sc=>(function w(x,path){x.children.forEach(k=>{
+    if(seen.has(k.id)||isQuery(k.text)||isQueryHolder(k))return;seen.add(k.id);
+    if(!k.children.length&&k.text.trim()&&m.test(k.text+' '+(k.note||''),k.done))hits.push({id:k.id,text:k.text,done:!!k.done,path,doc:sc.doc});
+    w(k,path.concat(headName(k.text)?plain(k.text).replace(/\s*(?:=[:%]*|:)\s*$/,''):''));
+  })})(sc.root,[]));
+  return hits;
 }
 function evaluate(root){
   EV=new Map();const scope={};
@@ -1149,7 +1171,8 @@ function evaluate(root){
       const fromKids=r=>{if(r.k)take(typeof r.val==='object'?r.val:{v:r.val})};
       const mkctx=()=>{const b=sumOf(block),g=sumOf(seg);return{sum:b.val,count:b.k,seg:g.val,prev}};
       const fl=isQuery(t)?null:eqFlags(t);
-      if(isQuery(t)){const qn=queryCount(c,root);count=qn||0;if(qn===0)count=-1;group(c,depth+1)}
+      let qhits=null;
+      if(isQuery(t)){qhits=queryRun(c,root);const qn=qhits?qhits.length:null;count=qn||0;if(qn===0)count=-1;group(c,depth+1)}
       else if(fl){
         const ctx=mkctx();
         const r=c.children.length?kids():null;
@@ -1176,7 +1199,7 @@ function evaluate(root){
         const r=Calc.line(expr,isDef?scope:Object.assign({},scope),ctx);if(r.k==='val'){take(r);show=isDef;kind=sk}
         group(c,depth+1);
       }
-      EV.set(c.id,{v,u,tm,st,show,count,kind,isq:isQuery(t)});
+      EV.set(c.id,{v,u,tm,st,show,count,kind,isq:isQuery(t),qhits});
       /* a total or average is not counted again by later totals or by the heading above; dates are never added */
       if(v!=null){const val={v,u,tm,st};if(!kind&&u!=='date'){block.push(val);seg.push(val)}prev=asVal(val)}
       if(kind==='sum')seg=[];
@@ -1327,7 +1350,7 @@ function fillChips(els,e,mode){
   }
   const qz=e&&e.count===-1,cn=e?(qz?0:e.count):0,nm=e&&!cn&&e.names?e.names:0;
   if(els.c){
-    if(cn||qz){els.c.hidden=false;els.c.textContent='('+cn+')';els.c.title=e.isq?'Entries in this section that match the query':mode==='count'?'Lines under this one, counting each name in a "Label: name, name" line':'Items under this one that have an amount'}
+    if(cn||qz){els.c.hidden=false;els.c.textContent='('+cn+')';els.c.title=e.isq?'Tap to list the matching entries':mode==='count'?'Lines under this one, counting each name in a "Label: name, name" line':'Items under this one that have an amount'}
     else if(nm){els.c.hidden=false;els.c.textContent='('+nm+')';els.c.title=nm+(nm===1?' name':' names')+' on this line'}
     else els.c.hidden=true}
   return v!=null||!!cn||!!nm||!!qz;
@@ -1338,6 +1361,24 @@ function refreshResults(){
     const t=line.querySelector('.txt');if(!t)return;
     const id=t.dataset.id,n=node(id);
     fillChips({b:line.querySelector('.res'),c:line.querySelector('.cnt')},EV.get(id),n?calcMode(n.text):null);
+  });
+  /* queries that are open list their matches underneath */
+  list.querySelectorAll('.qlist').forEach(x=>x.remove());
+  list.querySelectorAll('.line').forEach(line=>{
+    const t=line.querySelector('.txt');if(!t)return;
+    const n=node(t.dataset.id),e=EV.get(t.dataset.id);
+    const c=line.querySelector('.cnt');if(c)c.classList.toggle('qchip',!!(e&&e.isq));
+    if(c)c.classList.toggle('open',!!(n&&n.qopen&&e&&e.isq));
+    if(!n||!n.qopen||!e||!e.isq||!e.qhits)return;
+    const box=document.createElement('div');box.className='qlist';
+    if(!e.qhits.length){const p=document.createElement('div');p.className='qnone';p.textContent='Nothing matches';box.append(p)}
+    e.qhits.forEach(h=>{
+      const b=document.createElement('button');b.type='button';b.className='qitem'+(h.done?' done':'');b.dataset.id=h.id;if(h.doc)b.dataset.doc=h.doc.id;
+      b.innerHTML='<span></span><small></small>';b.querySelector('span').innerHTML=fmtText(h.text);
+      b.querySelector('small').textContent=(h.doc&&h.doc!==cur()?(h.doc.title||'Untitled')+(h.path.filter(Boolean).length?' › ':''):'')+h.path.filter(Boolean).join(' › ');
+      box.append(b);
+    });
+    line.after(box);
   });
   /* when zoomed in, the bullet shown as the heading keeps its value and count */
   const zd=cur(),zn=zd.zoom!=='root'?node(zd.zoom):null,ze=zn?EV.get(zd.zoom):null;
@@ -1566,7 +1607,7 @@ document.addEventListener('cut',e=>{if(!sel)return;const ids=selIds();if(!ids.le
 let dragSel=null;
 list.addEventListener('mousedown',e=>{
   if(e.button!==0)return;
-  const nd=e.target.closest('.node');if(!nd||e.target.closest('.dot,.tog,.res,.thumb,.nmark,a,.ilink,.tag'))return;
+  const nd=e.target.closest('.node');if(!nd||e.target.closest('.dot,.tog,.res,.thumb,.nmark,a,.ilink,.tag,.cnt.qchip,.qlist'))return;
   const id=nd.dataset.id;
   if(sel&&!e.shiftKey){e.preventDefault();if(touchOnly())return;sel=null;paintSel();const el=list.querySelector('.txt[data-id="'+id+'"]');if(el)focusTxt(el);return}
   if(e.shiftKey){
@@ -1635,7 +1676,7 @@ list.addEventListener('mousedown',e=>{
   const tag=e.target.closest('.tag');
   if(tag){e.preventDefault();setSearch(tag.dataset.tag);return}
   if(e.target.closest('a')){e.preventDefault();return}
-  const b=e.target.closest('.tog,.dot,.res');
+  const b=e.target.closest('.tog,.dot,.res,.cnt.qchip,.qitem');
   if(b){e.preventDefault();return}
   const line=e.target.closest('.line');
   if(line&&e.target===line){e.preventDefault();focusTxt(line.querySelector('.txt'))}
@@ -1644,6 +1685,8 @@ list.addEventListener('click',e=>{
   const a=e.target.closest('a');
   if(a&&a.href){window.open(a.href,'_blank','noopener')||null;return}
   const nmk=e.target.closest('.nmark');if(nmk){act.note(nmk.dataset.id);return}
+  const qc=e.target.closest('.cnt.qchip');if(qc){const n=node(qc.dataset.id);if(n){n.qopen=!n.qopen;save();refreshResults()}return}
+  const qi=e.target.closest('.qitem');if(qi){goTo(qi.dataset.doc||cur().id,qi.dataset.id,false);return}
   const b=e.target.closest('.tog,.dot,.res');if(!b)return;
   const id=b.dataset.id,n=node(id);
   if(b.classList.contains('tog')){if(state.q)return;n.collapsed=!n.collapsed;save();renderOutline()}
