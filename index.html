@@ -298,6 +298,24 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 }
 @media (pointer:coarse){body.editing .kbar{display:flex}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* printing: just the outline (or the zoomed-in item and everything under it), fully open, black on white */
+@media print{
+  html:root:not(#print),html:root[data-theme]:not(#print){--bg:#fff;--surface:#fff;--panel:#f1f1f1;--ink:#000;--muted:#333;--faint:#777;--line:#bbb;--rule:#ddd;--rowfocus:transparent;--accent:#000;--accent-soft:transparent;--result:#000;--result-soft:transparent;--tot:#000;--tot-soft:transparent;--avg:#000;--avg-soft:transparent;--hit:transparent;color-scheme:light}
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+  html{padding:0!important}
+  .app{display:block!important}
+  .side,.top,.kbar,.selbar,.toast,.drawerscrim,.tagpop,.pop,.scrim,.crumbs,.tog,.nmark,#emptyHint,#noHits,#scopeBar,.dropline{display:none!important}
+  .main{overflow:visible!important}
+  .page{max-width:none!important;padding:0!important;margin:0!important}
+  .doctitle{font-size:22pt;margin-bottom:10pt}
+  .row{grid-template-columns:18px minmax(0,1fr)!important;break-inside:avoid}
+  .node.trow>.row{grid-template-columns:18px auto!important}
+  .res,.cnt{border:1px solid #999!important;background:none!important;color:#000!important}
+  .qlist{border-left:1px solid #999}
+  .thumb{max-height:180px}
+  a{color:#000}
+  @page{margin:14mm}
+}
 </style>
 </head>
 <body>
@@ -345,6 +363,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <button class="mi" id="imgBtn" type="button">Add image to current item</button>
         <button class="mi" id="hideCaps" type="button" aria-pressed="false">Hide photo captions</button>
         <div class="msep"></div>
+        <button class="mi" id="printBtn" type="button">Print</button>
         <button class="mi" id="exportBtn" type="button">Export and backup</button>
         <button class="mi" id="keysBtn" type="button">Help and shortcuts</button>
         <div class="msep"></div>
@@ -1308,7 +1327,7 @@ function nodeEl(n,q,focus){
   const wrap=document.createElement('div');
   wrap.className='node'+(n.done?' done':'')+(q&&matches(n,q)?' hit':'');
   wrap.dataset.id=n.id;
-  const kids=n.children.length>0,open=q?true:!n.collapsed;
+  const kids=n.children.length>0,open=q||state.printing?true:!n.collapsed;
   const row=document.createElement('div');row.className='row';
   const tog=document.createElement('button');tog.type='button';tog.className='tog'+(kids?'':' none')+(open?'':' shut');tog.tabIndex=-1;tog.dataset.id=n.id;
   tog.setAttribute('aria-label',open?'Collapse':'Expand');tog.innerHTML=CHEV;
@@ -2434,6 +2453,19 @@ list.addEventListener('input',e=>{
   n.text=n.text.replace(/(^|\s)@today(\s)/gi,'$1'+dt+'$2');t.textContent=n.text;setCaret(t,a+shift);hideTags();save();
 });
 
+/* ---------- Print: the page as it is, or the zoomed-in item, with everything opened up ---------- */
+$('printBtn').addEventListener('click',()=>{
+  setPop(false);state.printing=true;renderOutline({focus:null});
+  /* fold things back after printing, or the next time the page is touched (some phones never report "after print") */
+  const done=()=>{if(!state.printing)return;state.printing=false;renderOutline({focus:null});
+    window.removeEventListener('afterprint',done);document.removeEventListener('pointerdown',later,true);document.removeEventListener('keydown',later,true)};
+  const later=()=>setTimeout(done,300);
+  window.addEventListener('afterprint',done);
+  setTimeout(()=>{
+    document.addEventListener('pointerdown',later,true);document.addEventListener('keydown',later,true);
+    try{window.print()}catch(e){done();toast("This browser can't print here. Open the page in Safari or Chrome and print from there")}
+  },80);
+});
 /* more menu */
 const pop=$('pop'),moreBtn=$('moreBtn');
 function fillMove(){
