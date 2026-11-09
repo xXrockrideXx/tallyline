@@ -186,7 +186,8 @@ body.dragmode,body.dragmode *{cursor:grabbing!important;-webkit-user-select:none
 .txt.tabrow .cell{padding:2px 11px;border-left:1px solid var(--line);min-width:0;overflow-wrap:break-word}
 .txt.tabrow .cell:first-child{border-left:0;padding-left:2px}
 @media (max-width:600px){.txt.tabrow .cell{padding-inline:7px}.txt.tabrow .cell:first-child{padding-left:2px}}
-.node.trow>.row{border-radius:0;border-bottom:1px solid var(--line)}
+.node.trow>.row{border-radius:0;border-bottom:1px solid var(--line);width:max-content;max-width:100%;box-sizing:border-box;border-right:1px solid var(--line)}
+.txt.tabrow{flex:0 0 auto}
 .node.trow.tr-first>.row{border-top:1px solid var(--line)}
 .node.trow.tr-odd>.row{background:color-mix(in srgb,var(--panel) 55%,transparent)}
 .node.trow>.row:focus-within{background:var(--rowfocus)}
@@ -1423,7 +1424,8 @@ function layTable(nodes,on){
     else{const extra=avail-sum(word),want=sum(full)-sum(word);fit=word.map((w,i)=>w+(want?extra*(full[i]-w)/want:0))}
   }
   const size=scale<1?(parseFloat(cs.fontSize)*scale).toFixed(1)+'px':'';
-  const template=fit.slice(0,-1).map(w=>Math.ceil(w+pad)+'px').concat('minmax('+Math.ceil(fit[fit.length-1]+pad)+'px,1fr)').join(' ');
+  /* every column, the last one too, is only as wide as its contents, so the table ends where the text ends */
+  const template=fit.map(w=>Math.ceil(w+pad)+'px').join(' ');
   rows.forEach((r,i)=>{
     r.el.classList.add('trow');r.el.classList.toggle('tr-odd',i%2===1);r.el.classList.toggle('tr-first',i===0);
     if(r.t.dataset.raw||document.activeElement===r.t)return;
