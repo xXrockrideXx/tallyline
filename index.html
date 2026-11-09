@@ -1089,7 +1089,10 @@ function summaryKind(expr,scope){
    Under a counted heading a comma always separates items, so "101: 100,200,300" is 3.
    A ; starts a comment that is not counted: "201: 3,5; Buttons not working" is 2. */
 function listCount(t){
+  /* table rows and times (16:20) are not lists: they count as one line and get no count of their own */
+  if(typeof isRow==='function'&&isRow(t))return null;
   const m=plain(t).match(/^([^:]+):\s*(.+)$/);if(!m)return null;
+  if(/(^|\s)\d{1,2}$/.test(m[1])&&/^\d{2}(?!\d)/.test(m[2]))return null;
   /* anything after a ; is a comment: "101: 1-3; PTU loose" counts machines 1-3 */
   const rest=m[2].split(';')[0].trim();
   const parts=rest.split(',').map(p=>p.trim()).filter(Boolean);if(!parts.length)return null;
