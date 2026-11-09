@@ -180,6 +180,16 @@ body.dragmode,body.dragmode *{cursor:grabbing!important;-webkit-user-select:none
 .selbar button{height:36px;min-width:36px;border:1px solid var(--line);background:var(--bg);border-radius:8px;display:grid;place-items:center;cursor:pointer;padding:0 9px;font-size:13px}
 .selbar button:hover{border-color:var(--faint)}
 .selbar .sdanger{color:var(--danger)}
+.txt{tab-size:6}
+/* rows with tab-separated cells (e.g. pasted from Excel) line up as a table */
+.txt.tabrow{display:grid;white-space:normal;font-variant-numeric:tabular-nums}
+.txt.tabrow .cell{padding:2px 11px;border-left:1px solid var(--line);min-width:0;overflow-wrap:break-word}
+.txt.tabrow .cell:first-child{border-left:0;padding-left:2px}
+@media (max-width:600px){.txt.tabrow .cell{padding-inline:7px}.txt.tabrow .cell:first-child{padding-left:2px}}
+.node.trow>.row{border-radius:0;border-bottom:1px solid var(--line)}
+.node.trow.tr-first>.row{border-top:1px solid var(--line)}
+.node.trow.tr-odd>.row{background:color-mix(in srgb,var(--panel) 55%,transparent)}
+.node.trow>.row:focus-within{background:var(--rowfocus)}
 .node.hit>.row .txt{background:var(--hit);border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 .scopebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:-8px 0 16px}
 .ilink{color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;cursor:pointer;border-radius:3px}
@@ -315,6 +325,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="msep"></div>
         <button class="mi" id="hideDone" type="button" aria-pressed="false">Hide done items</button>
         <button class="mi" id="hideNotes" type="button" aria-pressed="false">Hide notes</button>
+        <button class="mi" id="tablesBtn" type="button" aria-pressed="true">Show tables</button>
         <button class="mi" id="expandAll" type="button">Expand all</button>
         <button class="mi" id="collapseAll" type="button">Collapse all</button>
         <div class="msep"></div>
@@ -423,6 +434,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt>With items selected</dt><dd>Ctrl+C / Ctrl+X copy or cut them, Tab moves them in, Delete removes them, Esc stops selecting</dd>
       <dt>Drag a bullet's dot</dt><dd>Move the item. On the phone, hold the dot for a moment first</dd>
       <dt><kbd>@</kbd>today</dt><dd>Becomes today's date as a tag</dd>
+      <dt><code>Name | Area | Shift</code></dt><dd>Type | between cells to make a table row; rows next to each other form one table</dd>
+      <dt>Paste from Excel</dt><dd>Each row becomes an item and shows as a table. ⋯ → Show tables switches the table view on or off</dd>
       <dt><kbd>/</kbd></dt><dd>Search. Several words find lines with all of them. Use * for any characters (9* starts with 9), ? for one character, "quotes" for an exact phrase, -word to leave lines out, OR for either, and is:done or is:open for ticked or unticked items</dd>
       <dt><kbd>Esc</kbd></dt><dd>Stop editing, clear search</dd>
     </dl>
@@ -1337,7 +1350,7 @@ function renderOutline(opts){
   list.append(frag);
   $('emptyHint').hidden=zoom.children.length>0||!!q;
   $('noHits').hidden=!(q&&!list.childElementCount);
-  refreshResults();hydrateImgs(list);paintSel();
+  refreshResults();applyTables();hydrateImgs(list);paintSel();
   if(focus){
     const el=list.querySelector((focus.note?'.note':'.txt')+'[data-id="'+focus.id+'"]');
     if(el){el.focus();const L=el.textContent.length;setCaret(el,focus.pos==null?L:Math.min(focus.pos,L),focus.end==null?null:Math.min(focus.end,L))}
@@ -1364,6 +1377,62 @@ const act={
     op(()=>{const[,s,k]=sib(id);s.splice(k,1)});reindex(cur());renderOutline({focus:tid&&idx.has(tid)?{id:tid}:null})}
 };
 function addChildOfZoom(){const d=cur();reindex(d);const z=node(d.zoom);const nn=mk('');op(()=>z.children.push(nn));renderOutline({focus:{id:nn.id,pos:0}})}
+
+/* ---------- Tables: neighbouring items with tab-separated cells show as one table ---------- */
+/* a table row has cells split by tabs (from Excel) or by | typed between them: "82326 | Khuzwayo | Ayanda" */
+const PIPE_ROW=/\S\s*\|\s*\S/;
+const isRow=t=>t.includes('\t')||PIPE_ROW.test(t.replace(/^\s*\|/,'').replace(/\|\s*$/,''));
+function rowCells(t){
+  if(t.includes('\t'))return t.split('\t');
+  return t.trim().replace(/^\|\s*/,'').replace(/\s*\|$/,'').split(/\s*\|\s*/);
+}
+let measureCtx=null;
+function textWidth(t,font){if(!measureCtx){try{measureCtx=document.createElement('canvas').getContext('2d')}catch(e){}}
+  if(!measureCtx)return t.length*8;measureCtx.font=font;return measureCtx.measureText(t).width}
+function applyTables(){
+  const on=store.settings.tables!==false;
+  list.querySelectorAll('.node.trow').forEach(x=>x.classList.remove('trow','tr-odd','tr-first'));
+  const boxes=[list,...list.querySelectorAll('.kids')];
+  boxes.forEach(box=>{
+    let run=[];
+    /* one line on its own is only a table if it came from Excel (tabs) or starts with | */
+    const flush=()=>{if(run.length>1||(run.length===1&&/^\s*\||\t/.test(node(run[0].dataset.id).text)))layTable(run,on);else run.forEach(el=>{const t=el.querySelector(':scope>.row .txt');if(t&&t.classList.contains('tabrow')&&!t.dataset.raw){t.classList.remove('tabrow');t.style.gridTemplateColumns='';t.style.fontSize='';t.innerHTML=fmtText(node(el.dataset.id).text);hydrateImgs(t)}});run=[]};
+    for(const el of box.children){
+      if(!el.classList.contains('node')){flush();continue}
+      const n=node(el.dataset.id);
+      if(n&&isRow(n.text))run.push(el);else flush();
+    }
+    flush();
+  });
+}
+function layTable(nodes,on){
+  const rows=nodes.map(el=>({el,t:el.querySelector(':scope>.row .txt'),cells:rowCells(node(el.dataset.id).text)}));
+  if(!on){rows.forEach(r=>{if(r.t.classList.contains('tabrow')&&!r.t.dataset.raw){r.t.classList.remove('tabrow');r.t.style.gridTemplateColumns='';r.t.style.fontSize='';r.t.innerHTML=fmtText(node(r.el.dataset.id).text);hydrateImgs(r.t)}});return}
+  const cols=Math.max(...rows.map(r=>r.cells.length));
+  rows.forEach(r=>r.t.style.fontSize='');
+  const cs=getComputedStyle(rows[0].t),font=cs.font,pad=window.innerWidth<600?14:22;
+  const col=c=>rows.map(r=>plain(r.cells[c]||''));
+  /* full width of each column, and the width of its longest single word (a column never gets narrower than that) */
+  const full=Array.from({length:cols},(_,c)=>Math.max(20,...col(c).map(x=>textWidth(x,font)*1.06+4)));
+  const word=Array.from({length:cols},(_,c)=>Math.max(20,...col(c).flatMap(x=>x.split(/\s+/)).map(x=>textWidth(x,font)*1.06+4)));
+  const avail=Math.max(120,(rows[0].t.clientWidth||600)-cols*pad);
+  const sum=a=>a.reduce((p,x)=>p+x,0);
+  let scale=1,fit=full;
+  if(sum(full)>avail){
+    if(sum(word)>avail){scale=Math.max(.7,avail/sum(word));fit=word.map(w=>w*scale)}
+    else{const extra=avail-sum(word),want=sum(full)-sum(word);fit=word.map((w,i)=>w+(want?extra*(full[i]-w)/want:0))}
+  }
+  const size=scale<1?(parseFloat(cs.fontSize)*scale).toFixed(1)+'px':'';
+  const template=fit.slice(0,-1).map(w=>Math.ceil(w+pad)+'px').concat('minmax('+Math.ceil(fit[fit.length-1]+pad)+'px,1fr)').join(' ');
+  rows.forEach((r,i)=>{
+    r.el.classList.add('trow');r.el.classList.toggle('tr-odd',i%2===1);r.el.classList.toggle('tr-first',i===0);
+    if(r.t.dataset.raw||document.activeElement===r.t)return;
+    r.t.classList.add('tabrow');r.t.style.gridTemplateColumns=template;r.t.style.fontSize=size;
+    const cells=r.cells.concat(Array(cols-r.cells.length).fill(''));
+    r.t.innerHTML=cells.map(c=>'<span class="cell">'+(fmtText(c)||'&nbsp;')+'</span>').join('');
+    hydrateImgs(r.t);
+  });
+}
 
 /* ---------- Selecting several items ----------
    A selection is always a run of neighbouring items under one parent; their sub-items come along. */
@@ -1502,6 +1571,7 @@ list.addEventListener('focusin',e=>{
     state.last={id:t.dataset.id};
     if(t.dataset.raw)return;
     const n=node(t.dataset.id);if(!n)return;
+    if(t.classList.contains('tabrow')){t.classList.remove('tabrow');t.style.gridTemplateColumns='';t.style.fontSize='';t.textContent=n.text;t.dataset.raw='1';setCaret(t,n.text.length);return}
     if(t.textContent===n.text){t.dataset.raw='1';return}
     requestAnimationFrame(()=>{
       if(document.activeElement!==t||t.dataset.raw)return;
@@ -1513,7 +1583,7 @@ list.addEventListener('focusout',e=>{
   const t=e.target;
   if(t.classList.contains('txt')){
     const n=node(t.dataset.id);
-    if(n&&t.isConnected){t.innerHTML=fmtText(n.text);delete t.dataset.raw;hydrateImgs(t)}
+    if(n&&t.isConnected){t.innerHTML=fmtText(n.text);delete t.dataset.raw;hydrateImgs(t);if(isRow(n.text)||t.closest('.trow'))applyTables()}
   }else if(t.classList.contains('note')){
     const n=node(t.dataset.id);
     if(n&&!n.note){n.note=null;t.remove();save()}
@@ -1561,6 +1631,15 @@ list.addEventListener('paste',e=>{
   const n=node(t.dataset.id);const[a,b]=getSel(t);
   if(t.classList.contains('note')){beginBurst();const cur0=t.innerText;n.note=cur0.slice(0,a)+text+cur0.slice(b);t.textContent=n.note;setCaret(t,a+text.length);save();return}
   const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+  if(lines.length>1&&lines.every(l=>l.includes('\t'))){
+    /* rows copied from Excel or a table: each row becomes one item, cells kept */
+    const rows=text.replace(/\r/g,'').split('\n').filter(l=>l.trim()).map(l=>l.replace(/[\s]+$/,''));let last=null;
+    op(()=>{
+      const[pp,ss,ii]=sib(n.id),empty=!n.text.trim()&&!n.children.length&&n.note==null;
+      const made=rows.map(r=>mk(r));ss.splice(empty?ii:ii+1,empty?1:0,...made);last=made[made.length-1];
+    });
+    renderOutline({focus:null});toast('Pasted '+rows.length+' rows');return;
+  }
   if(lines.length>1&&/^\s*[-+*•] /.test(lines[0])){
     /* a bulleted list (e.g. copied from Tallyline): keep levels, ticks and notes */
     const r=textToOutline(text);let last=null;
@@ -2015,6 +2094,7 @@ searchEl.addEventListener('input',()=>{state.q=searchEl.value;renderOutline({foc
 searchEl.addEventListener('keydown',e=>{if(e.key==='Escape'){setSearch('');searchEl.blur()}if(e.key==='Enter'){e.preventDefault();focusTxt(list.querySelector('.node.hit .txt'))}});
 $('scopeHere').addEventListener('click',()=>{state.scope='here';renderOutline({focus:null})});
 $('scopeAll').addEventListener('click',()=>{state.scope='all';renderOutline({focus:null})});
+$('tablesBtn').addEventListener('click',()=>{store.settings.tables=store.settings.tables===false;$('tablesBtn').setAttribute('aria-pressed',String(store.settings.tables!==false));save();renderOutline({focus:null})});
 $('hideNotes').addEventListener('click',()=>{store.settings.hideNotes=!store.settings.hideNotes;$('hideNotes').setAttribute('aria-pressed',String(!!store.settings.hideNotes));save();renderOutline({focus:null})});
 $('imgBtn').addEventListener('click',()=>addImageTo(state.last&&node(state.last.id)?state.last.id:null));
 $('hideDone').addEventListener('click',()=>{store.settings.hideDone=!store.settings.hideDone;$('hideDone').setAttribute('aria-pressed',String(!!store.settings.hideDone));save();renderOutline({focus:null})});
@@ -2131,6 +2211,7 @@ function render(){
   renderSide();resetDel();
   $('hideDone').setAttribute('aria-pressed',String(!!store.settings.hideDone));
   $('hideNotes').setAttribute('aria-pressed',String(!!store.settings.hideNotes));
+  $('tablesBtn').setAttribute('aria-pressed',String(store.settings.tables!==false));
   $('hideCaps').setAttribute('aria-pressed',String(!!store.settings.hideCaps));
   renderOutline({focus:null});
 }
@@ -2204,15 +2285,16 @@ function excelLabel(n,hasValue){
 function copyForExcel(){
   evaluate(cur().root);
   const roots=sel?selIds().map(node):(node(cur().zoom)||cur().root).children;
-  const rows=[];
+  const rows=[];let anyTab=false,anyAmt=false;
   (function w(list,depth){list.forEach(n=>{
     if(store.settings.hideDone&&n.done)return;
     const e=EV.get(n.id)||{};
-    rows.push(['  '.repeat(depth)+excelLabel(n,e.v!=null).replace(/\t/g,' '),e.v!=null?rawVal(e):'']);
+    if(isRow(n.text)){anyTab=true;const c=rowCells(n.text).map(x=>plain(x));c[0]='  '.repeat(depth)+c[0];rows.push(c)}
+    else{if(e.v!=null)anyAmt=true;rows.push(['  '.repeat(depth)+excelLabel(n,e.v!=null).replace(/\t/g,' '),e.v!=null?rawVal(e):''])}
     w(n.children,depth+1);
   })})(roots,0);
   if(!rows.length){toast('Nothing to copy');return}
-  const tsv=[['Item','Amount'],...rows].map(r=>r.join('\t')).join('\n');
+  const tsv=(anyTab&&!anyAmt?rows:[['Item','Amount'],...rows]).map(r=>r.join('\t')).join('\n');
   copy(tsv,'Copied '+rows.length+(rows.length===1?' row':' rows')+'. Paste into Excel');
 }
 $('excelBtn').addEventListener('click',copyForExcel);
