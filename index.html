@@ -444,6 +444,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <dl class="keys">
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
       <dt><code>Fuel =:</code></dt><dd>Total of the items under it, with a count. Add-ons go after the =</dd>
+      <dt><code>?? 1% :</code></dt><dd>A query: counts the entries in its section (the heading above with : or =) that match. % is a wildcard: 1% starts with 1, %door% contains door. OR, -word and is:open work too</dd>
       <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon). A line like <code>Technical: Bonolo, Jaco</code> counts each name, and <code>101: 1,3,5</code> or <code>301: 1-10</code> counts each number. Add a comment after a semicolon: <code>101: 1-3; PTU loose</code>. Counts show in brackets, like (15)</dd>
       <dt><code>2026.12.25 - today =</code></dt><dd>Days between dates. Also 2026.11.01 + 30 = for a date 30 days later</dd>
       <dt><code>17:15 - 07:30 =</code></dt><dd>Hours and minutes (9:45). A heading with = adds up hours underneath</dd>
@@ -1114,6 +1115,26 @@ function sumOf(list){
   return{val:nums.reduce((p,x)=>p+x.v,0),k:nums.length};
 }
 const asVal=x=>x.u?{v:x.v,u:x.u,tm:x.tm,st:x.st}:x.v;
+/* ---------- Queries: "?? 1% :" counts the entries in its section that match.
+   % (or *) is a wildcard; the search box rules apply too (OR, -word, is:open, is:done). ---------- */
+const isQuery=t=>/^\s*\?\?/.test(t||'');
+const queryText=t=>t.replace(/^\s*\?\?\s*/,'').replace(/\s*:\s*$/,'').trim();
+/* a heading whose sub-items are all queries is just a holder for them, and is not counted itself */
+const isQueryHolder=x=>x.children.length>0&&x.children.every(k=>isQuery(k.text)||!k.text.trim());
+function queryCount(c,root){
+  const q=queryText(c.text);if(!q)return null;
+  const m=compileSearch(q);
+  /* the section is the nearest heading above that counts or totals; otherwise the whole document */
+  let scope=null;for(let p=par(c.id);p;p=par(p.id)){if(p.id==='root'||calcMode(p.text)){scope=p;break}}
+  scope=scope||root;
+  let n=0;
+  (function w(x){x.children.forEach(k=>{
+    if(isQuery(k.text)||isQueryHolder(k))return;
+    if(!k.children.length&&k.text.trim()&&m.test(k.text+' '+(k.note||''),k.done))n++;
+    w(k);
+  })})(scope);
+  return n;
+}
 function evaluate(root){
   EV=new Map();const scope={};
   (function group(n,depth){
@@ -1127,8 +1148,9 @@ function evaluate(root){
       const kids=()=>{group(c,depth+1);return sumOf(c.children.map(x=>EV.get(x.id)).filter(e=>e&&!e.kind&&e.v!=null&&e.u!=='date'))};
       const fromKids=r=>{if(r.k)take(typeof r.val==='object'?r.val:{v:r.val})};
       const mkctx=()=>{const b=sumOf(block),g=sumOf(seg);return{sum:b.val,count:b.k,seg:g.val,prev}};
-      const fl=eqFlags(t);
-      if(fl){
+      const fl=isQuery(t)?null:eqFlags(t);
+      if(isQuery(t)){const qn=queryCount(c,root);count=qn||0;if(qn===0)count=-1;group(c,depth+1)}
+      else if(fl){
         const ctx=mkctx();
         const r=c.children.length?kids():null;
         if(r&&r.k){fromKids(r);show=true;const nm=fl.expr.match(/^\s*([A-Za-z_]\w*)\s*$/);if(nm&&v!=null)scope[nm[1]]=asVal({v,u,tm,st})}
@@ -1142,6 +1164,7 @@ function evaluate(root){
            and a counted heading underneath adds its own count */
         group(c,depth+1);count=0;
         for(const x of c.children){
+          if(isQuery(x.text)||isQueryHolder(x))continue;
           const e=EV.get(x.id),n=calcMode(x.text)==='count'?(e?e.count:0):nameCount(x.text);
           if(e&&calcMode(x.text)!=='count'&&isNameList(x.text))e.names=n;
           count+=n;
@@ -1153,7 +1176,7 @@ function evaluate(root){
         const r=Calc.line(expr,isDef?scope:Object.assign({},scope),ctx);if(r.k==='val'){take(r);show=isDef;kind=sk}
         group(c,depth+1);
       }
-      EV.set(c.id,{v,u,tm,st,show,count,kind});
+      EV.set(c.id,{v,u,tm,st,show,count,kind,isq:isQuery(t)});
       /* a total or average is not counted again by later totals or by the heading above; dates are never added */
       if(v!=null){const val={v,u,tm,st};if(!kind&&u!=='date'){block.push(val);seg.push(val)}prev=asVal(val)}
       if(kind==='sum')seg=[];
@@ -1219,6 +1242,7 @@ const CHEV='<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><
    9* finds anything starting with 9, *9 anything ending in 9, tyre* finds tyre and tyres. ---------- */
 const SEP='\\s,;:()\\[\\]{}/"\'|=';
 function compileSearch(q){
+  q=q.replace(/%/g,'*');
   const esc2=c=>c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   /* a pattern for one term; wildcard terms start with a captured separator (no lookbehind, so older iPhones work too) */
   const pat=(t,ph)=>{
@@ -1301,12 +1325,12 @@ function fillChips(els,e,mode){
       b.title=e.kind==='total'?'Total of everything above. Tap to copy':e.kind==='sum'?'Sum of the items since the previous sum. Tap to copy':e.kind==='avg'?'Average of the items above. Tap to copy':'Copy result'}
     b.classList.toggle('tot',v!=null&&(e.kind==='total'||e.kind==='sum'));b.classList.toggle('avgv',v!=null&&e.kind==='avg');
   }
-  const cn=e?e.count:0,nm=e&&!cn&&e.names?e.names:0;
+  const qz=e&&e.count===-1,cn=e?(qz?0:e.count):0,nm=e&&!cn&&e.names?e.names:0;
   if(els.c){
-    if(cn){els.c.hidden=false;els.c.textContent='('+cn+')';els.c.title=mode==='count'?'Lines under this one, counting each name in a "Label: name, name" line':'Items under this one that have an amount'}
+    if(cn||qz){els.c.hidden=false;els.c.textContent='('+cn+')';els.c.title=e.isq?'Entries in this section that match the query':mode==='count'?'Lines under this one, counting each name in a "Label: name, name" line':'Items under this one that have an amount'}
     else if(nm){els.c.hidden=false;els.c.textContent='('+nm+')';els.c.title=nm+(nm===1?' name':' names')+' on this line'}
     else els.c.hidden=true}
-  return v!=null||!!cn||!!nm;
+  return v!=null||!!cn||!!nm||!!qz;
 }
 function refreshResults(){
   evaluate(cur().root);
@@ -2391,7 +2415,7 @@ function outlineText(n,depth){
   return n.children.map(c=>{
     const pad='  '.repeat(depth);
     let s=pad+'- '+(c.done?'[x] ':'')+c.text;
-    {const e=EV.get(c.id);if(e&&e.show&&e.v!=null)s+=' '+rawVal(e);if(e&&e.count)s+=' ('+e.count+')'}
+    {const e=EV.get(c.id);if(e&&e.show&&e.v!=null)s+=' '+rawVal(e);if(e&&e.count)s+=' ('+Math.max(0,e.count)+')'}
     s+='\n';
     if(c.note)s+=c.note.split('\n').map(l=>pad+'    '+l).join('\n')+'\n';
     return s+outlineText(c,depth+1);
