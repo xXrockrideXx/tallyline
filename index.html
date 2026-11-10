@@ -1613,6 +1613,13 @@ function moveSelFocus(dir){
   if(j<0||j>=all.length)return;
   sel.focus=all[j];paintSel();
 }
+function blockText(blk){return blk.rows.map(r=>{const c=rowCells(r.text).slice(blk.lo,blk.hi+1).map(x=>plain(x).trim());while(c.length<blk.hi-blk.lo+1)c.push('');return c.join('\t')}).join('\n')}
+function selCopy(){
+  const blk=cellBlock();if(blk)return{text:blockText(blk),msg:'Copied '+blk.rows.length+' × '+(blk.hi-blk.lo+1)+' cells'};
+  const ids=selIds(),ns=ids.map(node);
+  if(ns.length&&ns.every(n=>n&&isRow(n.text)&&!n.children.length))return{text:ns.map(n=>rowCells(n.text).map(x=>plain(x).trim()).join('\t')).join('\n'),msg:'Copied '+ns.length+(ns.length===1?' row':' rows')};
+  return{text:clipText(ids),msg:'Copied '+ids.length+(ids.length===1?' item':' items')};
+}
 function clipText(ids){
   const out=[];
   (function w(list,depth){list.forEach(c=>{const pad='  '.repeat(depth);
@@ -1622,7 +1629,7 @@ function clipText(ids){
   return out.join('\n');
 }
 const selAct={
-  copy(){const ids=selIds();copy(clipText(ids),'Copied '+ids.length+(ids.length===1?' item':' items'))},
+  copy(){const c=selCopy();copy(c.text,c.msg)},
   cut(){const ids=selIds();copy(clipText(ids),'Cut '+ids.length+(ids.length===1?' item':' items'));selAct.delete(true)},
   delete(quiet){
     const ids=selIds();if(!ids.length)return;
@@ -1661,7 +1668,7 @@ document.addEventListener('keydown',e=>{
   if(mod&&(k==='a'||k==='A')){e.preventDefault();selectAll();return}
   if(mod&&(k==='z'||k==='Z'||k==='y'||k==='Y')){e.preventDefault();sel=null;undo(k==='y'||k==='Y'||e.shiftKey);return}
 },true);
-document.addEventListener('copy',e=>{if(!sel)return;const ids=selIds();if(!ids.length)return;e.preventDefault();e.clipboardData.setData('text/plain',clipText(ids));toast('Copied '+ids.length+(ids.length===1?' item':' items'))});
+document.addEventListener('copy',e=>{if(!sel)return;const ids=selIds();if(!ids.length)return;e.preventDefault();const c=selCopy();e.clipboardData.setData('text/plain',c.text);toast(c.msg)});
 document.addEventListener('cut',e=>{if(!sel)return;const ids=selIds();if(!ids.length)return;e.preventDefault();e.clipboardData.setData('text/plain',clipText(ids));selAct.delete(true);toast('Cut '+ids.length+(ids.length===1?' item':' items'))});
 /* mouse: Shift-click extends from the item being edited; dragging across items selects them */
 let dragSel=null;
@@ -2545,8 +2552,7 @@ function columnInfo(){
 moreBtn.addEventListener('pointerdown',pickColumn,true);
 $('colBtn').addEventListener('click',()=>{
   const blk=cellBlock();
-  if(blk){const out=blk.rows.map(r=>rowCells(r.text).slice(blk.lo,blk.hi+1).map(c=>plain(c).trim()).concat(Array(Math.max(0,blk.hi-blk.lo+1-(rowCells(r.text).slice(blk.lo,blk.hi+1).length))).fill('')).join('\t')).join('\n');
-    copy(out,'Copied '+blk.rows.length+' × '+(blk.hi-blk.lo+1)+' cells');setPop(false);return}
+  if(blk){copy(blockText(blk),'Copied '+blk.rows.length+' × '+(blk.hi-blk.lo+1)+' cells');setPop(false);return}
   const ci=columnInfo();if(!ci)return;
   copy(ci.values.join('\n'),'Copied '+ci.values.length+' '+(ci.values.length===1?'entry':'entries')+' from '+ci.name);setPop(false)});
 function setPop(on){pop.hidden=!on;moreBtn.setAttribute('aria-expanded',String(on));
