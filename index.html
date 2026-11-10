@@ -194,9 +194,10 @@ body.dragmode,body.dragmode *{cursor:grabbing!important;-webkit-user-select:none
 .txt.tabrow{display:grid;white-space:normal;font-variant-numeric:tabular-nums}
 .txt.tabrow .cell{padding:2px 11px;border-left:1px solid var(--line);min-width:0;overflow-wrap:break-word}
 .txt.tabrow .cell:first-child{border-left:0;padding-left:2px}
-@media (max-width:600px){.txt.tabrow .cell{padding-inline:7px}.txt.tabrow .cell:first-child{padding-left:2px}}
+.txt.tabrow.squeeze .cell{overflow-wrap:anywhere}
+@media (max-width:600px){.txt.tabrow .cell{padding-inline:5px}.txt.tabrow .cell:first-child{padding-left:2px}}
 .node.trow>.row{border-radius:0;border-bottom:1px solid var(--line);width:max-content;max-width:100%;box-sizing:border-box;border-right:1px solid var(--line)}
-.txt.tabrow{flex:0 0 auto}
+.txt.tabrow{flex:0 0 auto;line-height:1.35;padding-block:4px}
 .node.trow.tr-first>.row{border-top:1px solid var(--line)}
 .node.trow.tr-odd>.row{background:color-mix(in srgb,var(--panel) 55%,transparent)}
 .node.trow>.row:focus-within{background:var(--rowfocus)}
@@ -1519,16 +1520,20 @@ function layTable(nodes,on){
   if(!on){rows.forEach(r=>{if(r.t.classList.contains('tabrow')&&!r.t.dataset.raw){r.t.classList.remove('tabrow');r.t.style.gridTemplateColumns='';r.t.style.fontSize='';r.t.innerHTML=fmtText(node(r.el.dataset.id).text);hydrateImgs(r.t)}});return}
   const cols=Math.max(...rows.map(r=>r.cells.length));
   rows.forEach(r=>r.t.style.fontSize='');
-  const cs=getComputedStyle(rows[0].t),font=cs.font,pad=window.innerWidth<600?14:22;
+  const cs=getComputedStyle(rows[0].t),font=cs.font,pad=window.innerWidth<600?10:22;
   const col=c=>rows.map(r=>plain(r.cells[c]||''));
   /* full width of each column, and the width of its longest single word (a column never gets narrower than that) */
   const full=Array.from({length:cols},(_,c)=>Math.max(20,...col(c).map(x=>textWidth(x,font)*1.06+4)));
   const word=Array.from({length:cols},(_,c)=>Math.max(20,...col(c).flatMap(x=>x.split(/\s+/)).map(x=>textWidth(x,font)*1.06+4)));
-  const avail=Math.max(120,(rows[0].t.clientWidth||600)-cols*pad);
+  /* the space the table can use: the width of the list it sits in, less the bullet and arrow columns */
+  const box=rows[0].el.parentElement,room=(box&&box.clientWidth?box.clientWidth:(list.clientWidth||600))-46;
+  const avail=Math.max(120,room-cols*pad);
   const sum=a=>a.reduce((p,x)=>p+x,0);
-  let scale=1,fit=full;
+  let scale=1,fit=full,squeeze=false;
   if(sum(full)>avail){
-    if(sum(word)>avail){scale=Math.max(.7,avail/sum(word));fit=word.map(w=>w*scale)}
+    if(sum(word)>avail){scale=Math.max(.6,avail/sum(word));fit=word.map(w=>w*scale);
+      /* still too wide at the smallest text: share out the space and let long words break, rather than push the page sideways */
+      if(sum(fit)>avail){fit=fit.map(w=>w*avail/sum(fit));squeeze=true}}
     else{const extra=avail-sum(word),want=sum(full)-sum(word);fit=word.map((w,i)=>w+(want?extra*(full[i]-w)/want:0))}
   }
   const size=scale<1?(parseFloat(cs.fontSize)*scale).toFixed(1)+'px':'';
@@ -1537,7 +1542,7 @@ function layTable(nodes,on){
   rows.forEach((r,i)=>{
     r.el.classList.add('trow');r.el.classList.toggle('tr-odd',i%2===1);r.el.classList.toggle('tr-first',i===0);
     if(r.t.dataset.raw||document.activeElement===r.t)return;
-    r.t.classList.add('tabrow');r.t.style.gridTemplateColumns=template;r.t.style.fontSize=size;
+    r.t.classList.add('tabrow');r.t.classList.toggle('squeeze',squeeze);r.t.style.gridTemplateColumns=template;r.t.style.fontSize=size;
     const cells=r.cells.concat(Array(cols-r.cells.length).fill(''));
     r.t.innerHTML=cells.map(c=>'<span class="cell">'+(fmtText(c)||'&nbsp;')+'</span>').join('');
     hydrateImgs(r.t);
