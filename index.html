@@ -200,6 +200,7 @@ body.dragmode,body.dragmode *{cursor:grabbing!important;-webkit-user-select:none
 .node.trow.tr-first>.row{border-top:1px solid var(--line)}
 .node.trow.tr-odd>.row{background:color-mix(in srgb,var(--panel) 55%,transparent)}
 .node.trow>.row:focus-within{background:var(--rowfocus)}
+.txt.tabrow .cell.cellsel{background:color-mix(in srgb,var(--accent) 22%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent)}
 .node.hit>.row .txt{background:var(--hit);border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 .scopebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:-8px 0 16px}
 .ilink{color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;cursor:pointer;border-radius:3px}
@@ -359,6 +360,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="msep"></div>
         <button class="mi" id="dupBtn" type="button">Duplicate</button>
         <button class="mi" id="excelBtn" type="button">Copy for Excel</button>
+        <button class="mi" id="colBtn" type="button" hidden>Copy column</button>
         <div class="msep"></div>
         <button class="mi" id="imgBtn" type="button">Add image to current item</button>
         <button class="mi" id="hideCaps" type="button" aria-pressed="false">Hide photo captions</button>
@@ -464,6 +466,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt>Drag a bullet's dot</dt><dd>Move the item. On the phone, hold the dot for a moment first</dd>
       <dt><kbd>@</kbd>today</dt><dd>Becomes today's date as a tag</dd>
       <dt><code>Name | Area | Shift</code></dt><dd>Type | between cells to make a table row; rows next to each other form one table</dd>
+      <dt>Copy one column</dt><dd>Tap a cell in the column, then ⋯ → Copy column. A bold header row is left out</dd>
+      <dt>Copy a block of cells</dt><dd>Tap the first cell, then Shift-click the last (on the phone: Select, then tap the last cell). ⋯ → Copy selected cells</dd>
       <dt>Paste from Excel</dt><dd>Each row becomes an item and shows as a table. ⋯ → Show tables switches the table view on or off</dd>
       <dt><kbd>/</kbd></dt><dd>Search. Several words find lines with all of them. Use * for any characters (9* starts with 9), ? for one character, "quotes" for an exact phrase, -word to leave lines out, OR for either, and is:done or is:open for ticked or unticked items</dd>
       <dt><kbd>Esc</kbd></dt><dd>Stop editing, clear search</dd>
@@ -1474,6 +1478,23 @@ function rowCells(t){
   if(t.includes('\t'))return t.split('\t');
   return t.trim().replace(/^\|\s*/,'').replace(/\s*\|$/,'').split(/\s*\|\s*/);
 }
+/* start and end of each cell in a row's text (tabs or |), so the caret can go to the tapped cell */
+function cellSpans(t){
+  const spans=[];
+  if(t.includes('\t')){let p=0;t.split('\t').forEach(c=>{spans.push([p,p+c.length]);p+=c.length+1});return spans}
+  const re=/\|/g;let start=0,m;const cuts=[];while((m=re.exec(t)))cuts.push(m.index);
+  const lead=/^\s*\|/.test(t)?cuts.shift():null;start=lead!=null?lead+1:0;
+  cuts.forEach(c=>{spans.push([start,c]);start=c+1});spans.push([start,t.length]);
+  if(/\|\s*$/.test(t)&&spans.length>1&&!t.slice(spans[spans.length-1][0]).trim())spans.pop();
+  return spans.map(([a,b])=>{const seg=t.slice(a,b);const l=seg.length-seg.trimStart().length,r=seg.length-seg.trimEnd().length;return[a+l,Math.max(a+l,b-r)]});
+}
+function cellAt(t,pos){const sp=cellSpans(t);for(let i=sp.length-1;i>=0;i--)if(pos>=sp[i][0]-1)return i;return 0}
+/* the run of table rows that an item belongs to */
+function tableRun(id){
+  const p=par(id);if(!p)return[];const k=p.children,i=k.findIndex(x=>x.id===id);if(i<0||!isRow(k[i].text))return[];
+  let a=i,b=i;while(a>0&&isRow(k[a-1].text))a--;while(b<k.length-1&&isRow(k[b+1].text))b++;
+  return k.slice(a,b+1);
+}
 let measureCtx=null;
 function textWidth(t,font){if(!measureCtx){try{measureCtx=document.createElement('canvas').getContext('2d')}catch(e){}}
   if(!measureCtx)return t.length*8;measureCtx.font=font;return measureCtx.measureText(t).width}
@@ -1523,6 +1544,10 @@ function layTable(nodes,on){
   });
 }
 
+/* remember which cell was tapped */
+list.addEventListener('pointerdown',e=>{const c=e.target.closest('.tabrow .cell'),t=c&&c.closest('.txt');if(!c||!t)return;
+  state.cellPick={id:t.dataset.id,col:[...t.children].indexOf(c),at:Date.now()};if(sel)setTimeout(paintSel,0)},true);
+
 /* ---------- Selecting several items ----------
    A selection is always a run of neighbouring items under one parent; their sub-items come along. */
 let sel=null;
@@ -1549,12 +1574,23 @@ function paintSel(){
   if(on)list.querySelectorAll('.txt').forEach(t=>t.setAttribute('contenteditable','false'));
   else if(was)list.querySelectorAll('.txt').forEach(t=>editable(t));
   selBar.hidden=!on;
+  list.querySelectorAll('.cell.cellsel').forEach(c=>c.classList.remove('cellsel'));
+  const blk=on?cellBlock():null;
+  if(blk)blk.rows.forEach(r=>{const t=list.querySelector('.tabrow[data-id="'+r.id+'"]');if(t)[...t.children].forEach((c,i)=>{if(i>=blk.lo&&i<=blk.hi)c.classList.add('cellsel')})});
   if(on){let total=0;ids.forEach(id=>(function w(n){total++;n.children.forEach(w)})(node(id)));
     $('selCount').textContent=ids.length+(ids.length===1?' item':' items')+(total>ids.length?' (+'+(total-ids.length)+' inside)':'');}
 }
 function startSel(anchor,focus){
   hideTags();
-  const a=document.activeElement;if(a&&list.contains(a))a.blur();
+  const a=document.activeElement;
+  /* the cell the selection starts in, for copying a block of table cells */
+  state.selCol=null;state.selAt=Date.now();
+  const an=node(anchor);
+  if(an&&isRow(an.text)){
+    if(a&&a.classList&&a.classList.contains('txt')&&a.dataset.id===anchor)state.selCol=cellAt(an.text,getSel(a)[0]);
+    else if(state.cellPick&&state.cellPick.id===anchor)state.selCol=state.cellPick.col;
+  }
+  if(a&&list.contains(a))a.blur();
   try{getSelection().removeAllRanges()}catch(e){}
   sel={anchor,focus};paintSel();
 }
@@ -1660,7 +1696,7 @@ list.addEventListener('focusin',e=>{
     state.last={id:t.dataset.id};
     if(t.dataset.raw)return;
     const n=node(t.dataset.id);if(!n)return;
-    if(t.classList.contains('tabrow')){t.classList.remove('tabrow');t.style.gridTemplateColumns='';t.style.fontSize='';t.textContent=n.text;t.dataset.raw='1';setCaret(t,n.text.length);return}
+    if(t.classList.contains('tabrow')){t.classList.remove('tabrow');t.style.gridTemplateColumns='';t.style.fontSize='';t.textContent=n.text;t.dataset.raw='1';const pk=state.cellPick&&state.cellPick.id===n.id&&Date.now()-state.cellPick.at<1500?cellSpans(n.text)[state.cellPick.col]:null;setCaret(t,pk?pk[1]:n.text.length);return}
     if(t.textContent===n.text){t.dataset.raw='1';return}
     requestAnimationFrame(()=>{
       if(document.activeElement!==t||t.dataset.raw)return;
@@ -2475,7 +2511,42 @@ function fillMove(){
   if(!store.folders.length){const o=new Option('Create folders with + Folder','',false,false);o.disabled=true;sel.add(o)}
   sel.value=d.folder||'';
 }
-function setPop(on){pop.hidden=!on;moreBtn.setAttribute('aria-expanded',String(on));if(on)fillMove();else resetDel()}
+/* the table column the caret (or the last tapped cell) is in, noted before the menu takes focus away */
+function pickColumn(){
+  const a=document.activeElement;
+  if(a&&a.classList&&a.classList.contains('txt')&&list.contains(a)){const n=node(a.dataset.id);if(n&&isRow(n.text)){state.colPick={id:n.id,col:cellAt(n.text,getSel(a)[0])};return}}
+  if(state.cellPick&&Date.now()-state.cellPick.at<60000&&idx.has(state.cellPick.id)){state.colPick={id:state.cellPick.id,col:state.cellPick.col};return}
+  state.colPick=null;
+}
+/* a block of table cells: the selected rows, from the column the selection started in to the last cell tapped */
+function cellBlock(){
+  if(!sel||state.selCol==null)return null;
+  const ids=selIds();const rows=ids.map(node).filter(n=>n&&isRow(n.text));
+  if(!rows.length||rows.length!==ids.length)return null;
+  let c2=state.selCol;
+  if(state.cellPick&&state.cellPick.at>=state.selAt-50&&ids.includes(state.cellPick.id))c2=state.cellPick.col;
+  return{rows,lo:Math.min(state.selCol,c2),hi:Math.max(state.selCol,c2)};
+}
+const isHeadRow=t=>rowCells(t).every(c=>!c.trim()||/^\s*\*\*[^*]+\*\*\s*$/.test(c));
+function columnInfo(){
+  const cp=state.colPick;if(!cp||!idx.has(cp.id))return null;
+  let rows=tableRun(cp.id);if(!rows.length)return null;
+  const head=rows[0]&&isHeadRow(rows[0].text)?rows[0]:null;
+  const name=head?plain(rowCells(head.text)[cp.col]||'').trim():'';
+  if(sel){const ids=new Set(selIds());const picked=rows.filter(r=>ids.has(r.id));if(picked.length)rows=picked}
+  rows=rows.filter(r=>r!==head&&!(store.settings.hideDone&&r.done));
+  return{name:name||('column '+(cp.col+1)),values:rows.map(r=>plain(rowCells(r.text)[cp.col]||'').trim())};
+}
+moreBtn.addEventListener('pointerdown',pickColumn,true);
+$('colBtn').addEventListener('click',()=>{
+  const blk=cellBlock();
+  if(blk){const out=blk.rows.map(r=>rowCells(r.text).slice(blk.lo,blk.hi+1).map(c=>plain(c).trim()).concat(Array(Math.max(0,blk.hi-blk.lo+1-(rowCells(r.text).slice(blk.lo,blk.hi+1).length))).fill('')).join('\t')).join('\n');
+    copy(out,'Copied '+blk.rows.length+' × '+(blk.hi-blk.lo+1)+' cells');setPop(false);return}
+  const ci=columnInfo();if(!ci)return;
+  copy(ci.values.join('\n'),'Copied '+ci.values.length+' '+(ci.values.length===1?'entry':'entries')+' from '+ci.name);setPop(false)});
+function setPop(on){pop.hidden=!on;moreBtn.setAttribute('aria-expanded',String(on));
+  if(on){fillMove();const blk=cellBlock(),ci=blk?null:columnInfo(),b=$('colBtn');b.hidden=!blk&&!ci;
+    if(blk)b.textContent='Copy selected cells ('+blk.rows.length+' × '+(blk.hi-blk.lo+1)+')';else if(ci)b.textContent='Copy column “'+ci.name+'”'}else resetDel()}
 moreBtn.addEventListener('click',()=>setPop(pop.hidden));
 document.addEventListener('pointerdown',e=>{if(!pop.hidden&&!pop.contains(e.target)&&!moreBtn.contains(e.target))setPop(false)});
 pop.addEventListener('click',e=>{const b=e.target.closest('.mi');if(b&&b.id!=='delBtn')setPop(false)});
