@@ -283,6 +283,11 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 .howto ol{padding-left:20px;color:var(--muted);display:grid;gap:5px;margin:10px 0 0}
 .howto b{color:var(--ink);font-weight:600}
 @media (pointer:coarse){input,textarea,#calcTa,.tape{font-size:16px!important}}
+.vimbar{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:45;font:600 11px/1 var(--f-mono);letter-spacing:.04em;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.08);white-space:pre}
+.vimbar.ins{color:var(--tot);border-color:var(--tot)}
+.vimbar.vis{color:var(--avg);border-color:var(--avg)}
+.vimnorm .txt[data-raw]::selection{background:var(--accent);color:var(--surface)}
+.vimvis .txt[data-raw]::selection{background:var(--accent-soft);color:var(--ink)}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;max-width:calc(100% - 32px);box-sizing:border-box}
 .drawerscrim{display:none}
 
@@ -368,6 +373,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="msep"></div>
         <button class="mi" id="printBtn" type="button">Print</button>
         <button class="mi" id="exportBtn" type="button">Export and backup</button>
+        <button class="mi" id="vimBtn" type="button" aria-pressed="false">Vim keys</button>
         <button class="mi" id="keysBtn" type="button">Help and shortcuts</button>
         <div class="msep"></div>
         <button class="mi danger" id="delBtn" type="button">Delete document</button>
@@ -473,6 +479,15 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt><kbd>/</kbd></dt><dd>Search. Several words find lines with all of them. Use * for any characters (9* starts with 9), ? for one character, "quotes" for an exact phrase, -word to leave lines out, OR for either, and is:done or is:open for ticked or unticked items</dd>
       <dt><kbd>Esc</kbd></dt><dd>Stop editing, clear search</dd>
     </dl>
+    <h3>Vim keys (⋯ → Vim keys, on a PC)</h3>
+    <dl class="keys">
+      <dt>Modes</dt><dd><kbd>Esc</kbd> or <kbd>Ctrl</kbd>+<kbd>[</kbd> normal · <kbd>i</kbd> <kbd>a</kbd> <kbd>I</kbd> <kbd>A</kbd> type · <kbd>o</kbd> <kbd>O</kbd> new item below / above · <kbd>v</kbd> visual · <kbd>V</kbd> select whole items. The mode shows bottom right</dd>
+      <dt>Move</dt><dd><kbd>h</kbd> <kbd>l</kbd> <kbd>w</kbd> <kbd>b</kbd> <kbd>e</kbd> <kbd>W</kbd> <kbd>B</kbd> <kbd>E</kbd> <kbd>0</kbd> <kbd>^</kbd> <kbd>$</kbd> <kbd>f</kbd> <kbd>t</kbd> <kbd>F</kbd> <kbd>T</kbd> <kbd>;</kbd> <kbd>,</kbd> <kbd>%</kbd> in the item; <kbd>j</kbd> <kbd>k</kbd> items, <kbd>gg</kbd> <kbd>G</kbd> first / last, <kbd>Ctrl</kbd>+<kbd>d</kbd> <kbd>u</kbd> ten items. Counts work: 3j, 2dw</dd>
+      <dt>Edit</dt><dd><kbd>x</kbd> <kbd>X</kbd> <kbd>s</kbd> <kbd>S</kbd> <kbd>r</kbd> <kbd>~</kbd> <kbd>C</kbd> <kbd>D</kbd> <kbd>J</kbd> join the next item, <kbd>d</kbd> <kbd>c</kbd> <kbd>y</kbd> with a motion or iw aw i" i( and so on, <kbd>gu</kbd> <kbd>gU</kbd> case, <kbd>.</kbd> repeat, <kbd>u</kbd> undo, <kbd>Ctrl</kbd>+<kbd>r</kbd> redo</dd>
+      <dt>Items</dt><dd><kbd>dd</kbd> delete the item with its sub-items, <kbd>yy</kbd> copy it, <kbd>p</kbd> <kbd>P</kbd> put it below / above, <kbd>cc</kbd> retype it, <kbd>&gt;&gt;</kbd> <kbd>&lt;&lt;</kbd> indent / outdent, <kbd>Alt</kbd>+<kbd>j</kbd> <kbd>k</kbd> move it down / up</dd>
+      <dt>Folds and search</dt><dd><kbd>za</kbd> <kbd>zo</kbd> <kbd>zc</kbd> fold, <kbd>zM</kbd> <kbd>zR</kbd> fold / unfold all, <kbd>zz</kbd> centre. <kbd>/</kbd> search, <kbd>n</kbd> <kbd>N</kbd> next / previous match, <kbd>*</kbd> search the word under the cursor</dd>
+      <dt>Still works</dt><dd><kbd>Ctrl</kbd>+<kbd>Enter</kbd> done, <kbd>Alt</kbd>+<kbd>→</kbd> <kbd>←</kbd> zoom, <kbd>Ctrl</kbd>+<kbd>C</kbd> <kbd>V</kbd>. Yanks also go to the clipboard</dd>
+    </dl>
     <h3>Maths in bullets</h3>
     <dl class="keys">
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
@@ -538,6 +553,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 </div>
 
 <div class="toast" id="toast" hidden role="status"></div>
+<div class="vimbar" id="vimBar" hidden></div>
 
 <script>
 (function(){
@@ -2360,6 +2376,7 @@ function render(){
   $('hideNotes').setAttribute('aria-pressed',String(!!store.settings.hideNotes));
   $('tablesBtn').setAttribute('aria-pressed',String(store.settings.tables!==false));
   $('hideCaps').setAttribute('aria-pressed',String(!!store.settings.hideCaps));
+  $('vimBtn').setAttribute('aria-pressed',String(!!store.settings.vim));
   renderOutline({focus:null});
 }
 function focusTitle(el){el.focus();const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)}
@@ -2623,6 +2640,421 @@ document.addEventListener('keydown',e=>{
   if(e.key==='?'){e.preventDefault();openModal($('keysModal'))}
   else if(e.key==='/'&&cur().type==='outline'){e.preventDefault();searchEl.focus()}
   else if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='y')&&cur().type==='outline'){e.preventDefault();undo(e.key==='y'||e.shiftKey)}
+});
+
+/* ---------- Vim keys (⋯ → Vim keys). Normal, insert and visual modes for a PC keyboard.
+   Each item is one "line": j/k go between items, dd deletes an item with its sub-items, >> indents it. ---------- */
+const V={mode:'normal',op:null,pend:'',count:'',col:null,reg:null,a:0,p:0,find:null,seq:[],last:null,ins:null,rec:false,replay:false,changed:false};
+const vimOn=()=>!!(store.settings&&store.settings.vim)&&!touchOnly();
+const vbar=$('vimBar');
+function vEl(){const t=document.activeElement;return t&&t.classList&&t.classList.contains('txt')&&list.contains(t)?t:null}
+function vimShow(){
+  const on=vimOn(),t=vEl(),show=on&&(!!sel||!!t);
+  vbar.hidden=!show;
+  if(show){
+    const m=sel?'VISUAL LINE':V.mode==='insert'?'INSERT':V.mode==='visual'?'VISUAL':'NORMAL';
+    vbar.textContent='-- '+m+' --'+(V.count||V.op||V.pend?'   '+V.count+(V.op||'')+V.pend:'');
+    vbar.className='vimbar'+(V.mode==='insert'&&!sel?' ins':V.mode==='visual'||sel?' vis':'');
+  }
+  list.classList.toggle('vimnorm',on&&V.mode==='normal');
+  list.classList.toggle('vimvis',on&&V.mode==='visual');
+}
+/* the item shows its plain text while the cursor is in it */
+function vRaw(t){
+  const n=node(t.dataset.id);
+  if(n&&!t.dataset.raw){if(t.classList.contains('tabrow')){t.classList.remove('tabrow','squeeze');t.style.gridTemplateColumns='';t.style.fontSize=''}t.textContent=n.text;t.dataset.raw='1'}
+  return n;
+}
+/* normal mode: the cursor is a one-letter block */
+function vSet(t,p){const L=t.textContent.length;p=Math.max(0,Math.min(p,L?L-1:0));setCaret(t,p,L?p+1:p)}
+function vVis(t){const L=t.textContent.length;V.p=Math.max(0,Math.min(V.p,L?L-1:0));const lo=Math.min(V.a,V.p),hi=Math.min(L,Math.max(V.a,V.p)+1);setCaret(t,lo,hi)}
+function vFocus(id,p,mode){
+  const el=list.querySelector('.txt[data-id="'+id+'"]');if(!el)return null;
+  if(document.activeElement!==el)el.focus();
+  vRaw(el);if(mode)V.mode=mode;
+  if(V.mode==='insert')setCaret(el,Math.min(p,el.textContent.length));else vSet(el,p);
+  vimShow();return el;
+}
+function vClip(text){try{navigator.clipboard.writeText(text).catch(()=>{})}catch(e){}}
+function vRegChar(text){V.reg={type:'char',text};vClip(text)}
+function vRegLines(ns){V.reg={type:'line',json:JSON.stringify(ns)};vClip(clipText(ns.map(x=>x.id)))}
+function vEdit(t,n,text,p,mode){
+  op(()=>{n.text=text});t.textContent=text;t.dataset.raw='1';refreshResults();V.changed=true;V.col=null;
+  if(mode==='insert'){V.mode='insert';setCaret(t,Math.min(p,text.length));V.ins={id:n.id,before:text,p}}
+  else{V.mode='normal';vSet(t,p)}
+}
+function vInsert(t,n,p){V.mode='insert';setCaret(t,Math.min(p,t.textContent.length));V.ins={id:n.id,before:n.text,p};V.changed=true;V.col=null}
+
+/* words: letters and digits, other marks, and spaces are three kinds (W and B treat everything but spaces as one) */
+const vCls=c=>c===undefined?-1:/\s/.test(c)?0:/[\p{L}\p{N}_]/u.test(c)?1:2;
+const vClsB=c=>c===undefined?-1:/\s/.test(c)?0:1;
+function vNextWord(s,p,big){const f=big?vClsB:vCls,L=s.length;if(p>=L)return L;const c=f(s[p]);let i=p;if(c)while(i<L&&f(s[i])===c)i++;while(i<L&&f(s[i])===0)i++;return i}
+function vPrevWord(s,p,big){const f=big?vClsB:vCls;let i=p;while(i>0&&f(s[i-1])===0)i--;if(i<=0)return 0;const c=f(s[i-1]);while(i>0&&f(s[i-1])===c)i--;return i}
+function vEndWord(s,p,big){const f=big?vClsB:vCls,L=s.length;let i=p+1;while(i<L&&f(s[i])===0)i++;if(i>=L)return Math.max(0,L-1);const c=f(s[i]);while(i+1<L&&f(s[i+1])===c)i++;return i}
+function vMotion(k,s,p,N){
+  const L=s.length;let q=p;
+  switch(k){
+    case 'h':case 'ArrowLeft':case 'Backspace':return{p:Math.max(0,p-N)};
+    case 'l':case 'ArrowRight':case ' ':return{p:Math.min(L,p+N)};
+    case '0':case 'Home':return{p:0};
+    case '^':return{p:s.match(/^\s*/)[0].length};
+    case '$':case 'End':return{p:Math.max(0,L-1),incl:true};
+    case 'w':case 'W':for(let i=0;i<N;i++)q=vNextWord(s,q,k==='W');return{p:q};
+    case 'b':case 'B':for(let i=0;i<N;i++)q=vPrevWord(s,q,k==='B');return{p:q};
+    case 'e':case 'E':for(let i=0;i<N;i++)q=vEndWord(s,q,k==='E');return{p:q,incl:true};
+  }
+  return null;
+}
+function vFind(s,p,kind,ch,N){
+  let q=p;
+  for(let i=0;i<N;i++){
+    let j;
+    if(kind==='f')j=s.indexOf(ch,q+1);
+    else if(kind==='t')j=s.indexOf(ch,q+2)-1;
+    else if(kind==='F')j=q>0?s.lastIndexOf(ch,q-1):-1;
+    else{j=q>1?s.lastIndexOf(ch,q-2):-1;if(j>=0)j++}
+    if(j<0||(kind==='t'&&j<0))return null;
+    q=j;
+  }
+  return{p:q,incl:kind==='f'||kind==='t'};
+}
+/* text objects: iw aw iW aW, i" a" i' a', i( a( ib, i[ a[, i{ a{ iB, i< a< */
+function vObj(s,p,ai,ch){
+  const L=s.length;if(!L)return null;
+  if(ch==='w'||ch==='W'){
+    const f=ch==='W'?vClsB:vCls,c=f(s[p]);let a=p,b=p+1;
+    while(a>0&&f(s[a-1])===c)a--;while(b<L&&f(s[b])===c)b++;
+    if(ai==='a'){
+      if(c!==0){const b0=b;while(b<L&&f(s[b])===0)b++;if(b===b0)while(a>0&&f(s[a-1])===0)a--}
+      else if(b<L){const c2=f(s[b]);while(b<L&&f(s[b])===c2)b++}
+    }
+    return[a,b];
+  }
+  if('"\'`'.includes(ch)){
+    const at=[];for(let i=0;i<L;i++)if(s[i]===ch)at.push(i);
+    for(let i=0;i+1<at.length;i+=2){if(p<=at[i+1])return ai==='i'?[at[i]+1,at[i+1]]:[at[i],at[i+1]+1]}
+    return null;
+  }
+  const pairs={'(':'()',')':'()','b':'()','[':'[]',']':'[]','{':'{}','}':'{}','B':'{}','<':'<>','>':'<>'};
+  const pr=pairs[ch];if(!pr)return null;
+  const o=pr[0],c=pr[1];
+  let d=0,a=-1;
+  for(let i=s[p]===c?p-1:p;i>=0;i--){if(s[i]===c)d++;else if(s[i]===o){if(!d){a=i;break}d--}}
+  if(a<0)return null;
+  d=0;for(let i=a+1;i<L;i++){if(s[i]===o)d++;else if(s[i]===c){if(!d)return ai==='i'?[a+1,i]:[a,i+1];d--}}
+  return null;
+}
+/* the item and the ones after it at the same level (for dd, yy, >> with a count) */
+function vLines(id,from,n){const[,s,i]=sib(id);const a=Math.max(0,i+from);return s.slice(a,Math.max(a+1,i+from+n))}
+function vClone(n){return Object.assign({},n,{id:uid(),children:n.children.map(vClone)})}
+function vDelLines(ns){
+  if(!ns.length)return;
+  vRegLines(ns);V.changed=true;
+  const gone=new Set();ns.forEach(x=>(function w(y){gone.add(y.id);y.children.forEach(w)})(x));
+  const all=visibleTxt().map(e=>e.dataset.id),i=all.indexOf(ns[0].id);
+  const tid=all.slice(Math.max(0,i)).find(x=>!gone.has(x))||all.slice(0,Math.max(0,i)).reverse().find(x=>!gone.has(x));
+  const[,s]=sib(ns[0].id);
+  let nn=null;
+  op(()=>{ns.forEach(x=>s.splice(s.indexOf(x),1));const z=node(cur().zoom);if(!tid&&z&&!z.children.length){nn=mk('');z.children.push(nn)}});
+  const to=tid||(nn&&nn.id);
+  renderOutline({focus:to?{id:to,pos:0}:null});
+  if(to){const e=vFocus(to,0,'normal');if(e)vSet(e,e.textContent.match(/^\s*/)[0].length)}
+}
+function vPutLines(id,after,N){
+  const src=JSON.parse(V.reg.json);let made=[];for(let c=0;c<N;c++)made=made.concat(src.map(vClone));
+  const[,s,i]=sib(id);op(()=>s.splice(after?i+1:i,0,...made));V.changed=true;
+  renderOutline({focus:{id:made[0].id,pos:0}});vFocus(made[0].id,0,'normal');
+}
+function vShift(ids,dir,pos,keep){
+  if(dir>0)ids.forEach(x=>act.indent(x,pos));else ids.slice().reverse().forEach(x=>act.outdent(x,pos));
+  V.changed=true;vFocus(keep,pos,'normal');
+}
+function vHits(){return[...list.querySelectorAll('.node.hit')].map(x=>x.querySelector(':scope>.row .txt')).filter(Boolean)}
+
+function vRun(k){
+  const t=vEl();if(!t)return;
+  const n=vRaw(t);if(!n)return;
+  const id=n.id,s=n.text,L=s.length,vis=V.mode==='visual';
+  let p=vis?V.p:Math.min(getSel(t)[0],Math.max(0,L-1));
+  if(!V.replay&&!V.op&&!V.pend&&!V.count&&!vis)V.seq=[];
+  if(!V.replay)V.seq.push(k);
+  V.changed=false;
+  const N=Math.max(1,parseInt(V.count,10)||1),hasCount=!!V.count;
+  const fin=()=>{
+    const ch=V.changed;V.op=null;V.pend='';V.count='';
+    if(ch&&!V.replay){V.last={seq:V.seq.slice(),text:null};V.rec=V.mode==='insert'}
+    vimShow();
+  };
+  const wait=()=>{vimShow()};
+  const clampN=q=>Math.max(0,Math.min(q,L?L-1:0));
+  /* do the pending operator over a stretch of the text, or just move the cursor */
+  const opRange=(o,a,b)=>{
+    if(b<a)[a,b]=[b,a];
+    const txt=s.slice(a,b);
+    if(o==='y'){vRegChar(txt);V.mode='normal';vSet(t,a);return}
+    if(o==='>'||o==='<'){vShift([id],o==='>'?1:-1,p,id);return}
+    if(o==='~'||o==='u'||o==='U'){const x=o==='u'?txt.toLowerCase():o==='U'?txt.toUpperCase():[...txt].map(c=>c===c.toUpperCase()?c.toLowerCase():c.toUpperCase()).join('');vEdit(t,n,s.slice(0,a)+x+s.slice(b),a,'normal');return}
+    vRegChar(txt);
+    vEdit(t,n,s.slice(0,a)+s.slice(b),a,o==='c'?'insert':'normal');
+  };
+  const move=(q,incl)=>{
+    if(V.op){const o=V.op;if(q>=p)opRange(o,p,incl?Math.min(L,q+1):q);else opRange(o,q,incl?p+1:p);return fin()}
+    if(vis){V.p=clampN(q);vVis(t)}else vSet(t,q);
+    V.col=null;return fin();
+  };
+  const goItem=(el,col)=>{if(!el)return fin();const ni=node(el.dataset.id);const q=col==null?(ni?ni.text.match(/^\s*/)[0].length:0):col;if(V.mode==='visual')V.mode='normal';vFocus(el.dataset.id,q);return fin()};
+
+  if(k==='Escape'){
+    if(V.op||V.pend||V.count){V.op=null;V.pend='';V.count='';return wait()}
+    if(vis){V.mode='normal';vSet(t,V.p);return fin()}
+    if(state.q){setSearch('');vFocus(id,p,'normal')}
+    return fin();
+  }
+  /* a count: 3dd, 2w, 5j */
+  if(/^[0-9]$/.test(k)&&!/^[fFtTr]$/.test(V.pend)&&V.pend!=='i'&&V.pend!=='a'&&(k!=='0'||V.count)){V.count+=k;return wait()}
+
+  /* keys that wait for one more letter */
+  if(/^[fFtT]$/.test(V.pend)){const kind=V.pend;V.pend='';if(k.length!==1)return fin();V.find={kind,ch:k};const r=vFind(s,p,kind,k,N);if(!r)return fin();return move(r.p,r.incl)}
+  if(V.pend==='r'){
+    V.pend='';if(k.length!==1||!L)return fin();
+    if(vis){const lo=Math.min(V.a,V.p),hi=Math.min(L,Math.max(V.a,V.p)+1);vEdit(t,n,s.slice(0,lo)+k.repeat(hi-lo)+s.slice(hi),lo,'normal');return fin()}
+    if(p+N>L)return fin();
+    vEdit(t,n,s.slice(0,p)+k.repeat(N)+s.slice(p+N),p+N-1,'normal');return fin();
+  }
+  if(V.pend==='i'||V.pend==='a'){
+    const r=vObj(s,p,V.pend,k);V.pend='';if(!r)return fin();
+    if(vis){V.a=r[0];V.p=Math.max(r[0],r[1]-1);vVis(t);return fin()}
+    if(V.op){opRange(V.op,r[0],r[1]);return fin()}
+    return fin();
+  }
+  if(V.pend==='g'){
+    V.pend='';
+    if(k==='g'){if(V.op)return fin();const all=visibleTxt();return goItem(hasCount?all[Math.min(N,all.length)-1]:all[0])}
+    if(k==='J'){const all=visibleTxt();const nx=all[all.indexOf(t)+1];if(!nx)return fin();const xn=node(nx.dataset.id);if(xn.children.length){toast("Can't join an item that has sub-items");return fin()}
+      op(()=>{n.text=s+xn.text;if(xn.note)n.note=(n.note?n.note+'\n':'')+xn.note;const[,ss,j]=sib(xn.id);ss.splice(j,1)});V.changed=true;renderOutline({focus:{id,pos:0}});vFocus(id,L,'normal');return fin()}
+    if(k==='u'||k==='U'||k==='~'){V.op=k;V.pend='';return wait()}
+    if(k==='v'&&V.lastVis&&V.lastVis.id===id){V.mode='visual';V.a=V.lastVis.a;V.p=V.lastVis.p;vVis(t);return fin()}
+    return fin();
+  }
+  if(V.pend==='z'){
+    V.pend='';
+    if(k==='a'&&n.children.length){act.fold(id,!n.collapsed);vFocus(id,p)}
+    else if(k==='o'&&n.collapsed){act.fold(id,false);vFocus(id,p)}
+    else if(k==='c'){if(n.children.length&&!n.collapsed){act.fold(id,true);vFocus(id,p)}else{const pp=par(id);if(pp&&pp.id!==cur().zoom&&pp.id!=='root'){act.fold(pp.id,true);vFocus(pp.id,0)}}}
+    else if(k==='M'||k==='R'){foldAll(k==='M');if(!vFocus(id,p)){const f=visibleTxt()[0];if(f)vFocus(f.dataset.id,0)}}
+    else if(k==='z'||k==='.')t.scrollIntoView({block:'center'});
+    else if(k==='t')t.scrollIntoView({block:'start'});
+    else if(k==='b')t.scrollIntoView({block:'end'});
+    return fin();
+  }
+  if(V.pend==='['||V.pend===']'){V.pend='';return fin()}
+
+  /* the same operator twice works on whole items: dd cc yy >> << */
+  if(V.op&&(k===V.op||(V.op==='g~'&&k==='~'))){
+    const o=V.op;
+    if(o==='d'){vDelLines(vLines(id,0,N));return fin()}
+    if(o==='y'){vRegLines(vLines(id,0,N));toast('Yanked '+N+(N===1?' item':' items'));return fin()}
+    if(o==='c'){const lead=s.match(/^\s*/)[0];vRegChar(s);vEdit(t,n,lead,lead.length,'insert');return fin()}
+    if(o==='>'||o==='<'){vShift(vLines(id,0,N).map(x=>x.id),o==='>'?1:-1,p,id);return fin()}
+    if(o==='u'||o==='U'||o==='~'){opRange(o,0,L);return fin()}
+  }
+  if(V.op&&(k==='j'||k==='k')&&'dy<>'.includes(V.op)){
+    const ns=k==='j'?vLines(id,0,N+1):vLines(id,-N,N+1);const o=V.op;
+    if(o==='d')vDelLines(ns);else if(o==='y'){vRegLines(ns);toast('Yanked '+ns.length+' items')}else vShift(ns.map(x=>x.id),o==='>'?1:-1,p,id);
+    return fin();
+  }
+  if(V.op&&(k==='i'||k==='a')){V.pend=k;return wait()}
+
+  /* moving the cursor */
+  if(V.op==='c'&&(k==='w'||k==='W')&&L&&!/\s/.test(s[p])){
+    const f=k==='W'?vClsB:vCls;let q=p;while(q+1<L&&f(s[q+1])===f(s[p]))q++;for(let i=1;i<N;i++)q=vEndWord(s,q,k==='W');return move(q,true);
+  }
+  const m=vMotion(k,s,p,N);
+  if(m){if(!V.op&&!vis&&(k==='l'||k==='ArrowRight'||k===' ')&&m.p>=L)return fin();return move(m.p,m.incl)}
+  if(k===';'||k===','){if(!V.find)return fin();const f=V.find,kind=k===';'?f.kind:{f:'F',F:'f',t:'T',T:'t'}[f.kind];const r=vFind(s,p,kind,f.ch,N);if(!r)return fin();return move(r.p,r.incl)}
+  if(k==='%'){
+    const pairs={'(':')','[':']','{':'}',')':'(',']':'[','}':'{'};let i=p;while(i<L&&!pairs[s[i]])i++;if(i>=L)return fin();
+    const c=s[i],mm=pairs[c],fwd='([{'.includes(c);let d=0;
+    for(let j=i;fwd?j<L:j>=0;j+=fwd?1:-1){if(s[j]===c)d++;else if(s[j]===mm){d--;if(!d)return move(j,true)}}
+    return fin();
+  }
+  if('fFtT'.includes(k)&&k.length===1){V.pend=k;return wait()}
+  if(V.op){V.op=null;return fin()}
+
+  /* items up and down */
+  const all=visibleTxt(),at=all.indexOf(t);
+  if(k==='j'||k==='k'||k==='ArrowDown'||k==='ArrowUp'){
+    if(vis){V.mode='normal';startSel(id,id);for(let i=0;i<N;i++)moveSelFocus(k==='j'||k==='ArrowDown'?1:-1);return fin()}
+    if(V.col==null)V.col=p;const col=V.col;
+    const to=all[Math.max(0,Math.min(all.length-1,at+(k==='j'||k==='ArrowDown'?N:-N)))];
+    if(!to||to===t)return fin();vFocus(to.dataset.id,col);V.col=col;return fin();
+  }
+  if(k==='Enter'||k==='+'||k==='-'){return goItem(all[Math.max(0,Math.min(all.length-1,at+(k==='-'?-N:N)))])}
+  if(k==='G'){return goItem(hasCount?all[Math.min(N,all.length)-1]:all[all.length-1])}
+  if(k==='<C-d>'||k==='<C-u>'){return goItem(all[Math.max(0,Math.min(all.length-1,at+(k==='<C-d>'?10:-10)))],p)}
+  if(k==='<C-r>'){undo(true);const e=vEl();if(e){vRaw(e);V.mode='normal';vSet(e,p)}return fin()}
+  if(k==='u'&&!vis){undo(false);const e=vEl();if(e){vRaw(e);V.mode='normal';vSet(e,p)}else if(idx.has(id))vFocus(id,p,'normal');return fin()}
+
+  /* visual mode */
+  if(vis){
+    const lo=Math.min(V.a,V.p),hi=Math.min(L,Math.max(V.a,V.p)+1);
+    V.lastVis={id,a:V.a,p:V.p};
+    if(k==='v'){V.mode='normal';vSet(t,V.p);return fin()}
+    if(k==='V'){V.mode='normal';startSel(id,id);return fin()}
+    if(k==='o'||k==='O'){const x=V.a;V.a=V.p;V.p=x;vVis(t);return fin()}
+    if(k==='i'||k==='a'){V.pend=k;return wait()}
+    if(k==='r'){V.pend='r';return wait()}
+    if(k==='d'||k==='x'||k==='Delete'){opRange('d',lo,hi);return fin()}
+    if(k==='X'||k==='D'){vDelLines([n]);V.mode='normal';return fin()}
+    if(k==='c'||k==='s'){opRange('c',lo,hi);return fin()}
+    if(k==='C'||k==='S'||k==='R'){opRange('c',0,L);return fin()}
+    if(k==='y'){opRange('y',lo,hi);return fin()}
+    if(k==='Y'){vRegLines([n]);V.mode='normal';vSet(t,lo);return fin()}
+    if(k==='~'||k==='u'||k==='U'){opRange(k,lo,hi);return fin()}
+    if(k==='J'){V.mode='normal';vSet(t,lo);V.pend='';return vRun('J')}
+    if(k==='>'||k==='<'){V.mode='normal';vShift([id],k==='>'?1:-1,lo,id);return fin()}
+    if((k==='p'||k==='P')&&V.reg&&V.reg.type==='char'){const r=V.reg.text,old=s.slice(lo,hi);vEdit(t,n,s.slice(0,lo)+r+s.slice(hi),Math.max(lo,lo+r.length-1),'normal');vRegChar(old);return fin()}
+    return fin();
+  }
+
+  switch(k){
+    case 'i':vInsert(t,n,p);return fin();
+    case 'a':vInsert(t,n,L?p+1:0);return fin();
+    case 'I':vInsert(t,n,s.match(/^\s*/)[0].length);return fin();
+    case 'A':vInsert(t,n,L);return fin();
+    case 'o':case 'O':{
+      const nn=mk('');
+      op(()=>{if(k==='o'&&n.children.length&&!n.collapsed&&!state.q)n.children.unshift(nn);else{const[,ss,i]=sib(id);ss.splice(k==='o'?i+1:i,0,nn)}});
+      V.changed=true;renderOutline({focus:{id:nn.id,pos:0}});vFocus(nn.id,0,'insert');V.ins={id:nn.id,before:'',p:0};return fin();
+    }
+    case 'x':case 'Delete':if(!L)return fin();vRegChar(s.slice(p,p+N));vEdit(t,n,s.slice(0,p)+s.slice(p+N),p,'normal');return fin();
+    case 'X':if(!p)return fin();vRegChar(s.slice(Math.max(0,p-N),p));vEdit(t,n,s.slice(0,Math.max(0,p-N))+s.slice(p),Math.max(0,p-N),'normal');return fin();
+    case 's':vRegChar(s.slice(p,p+N));vEdit(t,n,s.slice(0,p)+s.slice(p+N),p,'insert');return fin();
+    case 'S':{const lead=s.match(/^\s*/)[0];vRegChar(s);vEdit(t,n,lead,lead.length,'insert');return fin()}
+    case 'C':vRegChar(s.slice(p));vEdit(t,n,s.slice(0,p),p,'insert');return fin();
+    case 'D':if(!L)return fin();vRegChar(s.slice(p));vEdit(t,n,s.slice(0,p),p-1,'normal');return fin();
+    case 'Y':vRegLines(vLines(id,0,N));toast('Yanked '+N+(N===1?' item':' items'));return fin();
+    case 'p':case 'P':{
+      if(!V.reg){toast('Nothing yanked yet');return fin()}
+      if(V.reg.type==='line'){vPutLines(id,k==='p',N);return fin()}
+      const r=V.reg.text.repeat(N),at2=k==='p'&&L?p+1:p;
+      vEdit(t,n,s.slice(0,at2)+r+s.slice(at2),at2+r.length-1,'normal');return fin();
+    }
+    case 'J':{
+      const nx=all[at+1];if(!nx)return fin();const xn=node(nx.dataset.id);
+      if(xn.children.length){toast("Can't join an item that has sub-items");return fin()}
+      const left=s.replace(/\s+$/,''),right=xn.text.replace(/^\s+/,''),glue=left&&right?' ':'';
+      op(()=>{n.text=left+glue+right;if(xn.note)n.note=(n.note?n.note+'\n':'')+xn.note;const[,ss,j]=sib(xn.id);ss.splice(j,1)});
+      V.changed=true;renderOutline({focus:{id,pos:0}});vFocus(id,left.length,'normal');return fin();
+    }
+    case '~':{if(!L)return fin();const b=Math.min(L,p+N),x=[...s.slice(p,b)].map(c=>c===c.toUpperCase()?c.toLowerCase():c.toUpperCase()).join('');vEdit(t,n,s.slice(0,p)+x+s.slice(b),Math.min(b,L-1),'normal');return fin()}
+    case 'r':V.pend='r';return wait();
+    case 'g':case 'z':case '[':case ']':V.pend=k;return wait();
+    case 'd':case 'c':case 'y':case '>':case '<':V.op=k;return wait();
+    case 'v':V.mode='visual';V.a=p;V.p=p;vVis(t);return fin();
+    case 'V':{const ns=vLines(id,0,N);startSel(ns[0].id,ns[ns.length-1].id);return fin()}
+    case 'Tab':vShift([id],1,p,id);return fin();
+    case 'S-Tab':vShift([id],-1,p,id);return fin();
+    case '/':case '?':searchEl.focus();searchEl.select();return fin();
+    case 'n':case 'N':{
+      if(!state.q){toast('Search first with /');return fin()}
+      const hits=vHits();if(!hits.length)return fin();
+      const pos=h=>all.indexOf(h);
+      const to=k==='n'?(hits.find(h=>pos(h)>at)||hits[0]):([...hits].reverse().find(h=>pos(h)<at)||hits[hits.length-1]);
+      return goItem(to,0);
+    }
+    case '*':case '#':{const r=vObj(s,p,'i','w');const w=r?s.slice(r[0],r[1]).trim():'';if(!w)return fin();setSearch(w);vFocus(id,p,'normal');return fin()}
+    case '.':{
+      if(!V.last)return fin();
+      const L0=V.last;V.op=null;V.pend='';V.count='';V.replay=true;
+      try{
+        for(const x of L0.seq)vRun(x);
+        if(V.mode==='insert'){const t2=vEl();if(t2){const n2=node(t2.dataset.id),q=getSel(t2)[0],tx=L0.text||'';
+          if(tx){op(()=>{n2.text=n2.text.slice(0,q)+tx+n2.text.slice(q)});t2.textContent=n2.text;refreshResults()}
+          V.mode='normal';vSet(t2,Math.max(0,q+tx.length-1))}}
+      }finally{V.replay=false;V.ins=null}
+      V.op=null;V.pend='';V.count='';vimShow();return;
+    }
+  }
+  return fin();
+}
+/* leaving insert mode: remember what was typed, so . can type it again */
+function vEsc(t){
+  const n=node(t.dataset.id),p=getSel(t)[0];
+  if(n&&V.ins&&V.rec&&V.last&&V.ins.id===n.id){
+    const b=V.ins.before,a=n.text,d=a.length-b.length,q=V.ins.p;
+    if(d>=0&&a.slice(0,q)===b.slice(0,q)&&a.slice(q+d)===b.slice(q))V.last.text=a.slice(q,q+d);
+  }
+  V.ins=null;V.rec=false;V.mode='normal';V.col=null;
+  if(n){vRaw(t);vSet(t,Math.max(0,p-1))}
+  vimShow();
+}
+/* with whole items selected (V): j k extend, d deletes, y copies, > < indent */
+function vLineKey(e){
+  const k=e.key;if(e.ctrlKey||e.metaKey||e.altKey)return false;
+  if(k==='j'||k==='k'){moveSelFocus(k==='j'?1:-1);return true}
+  if(k==='d'||k==='x'||k==='D'||k==='X'){const ns=selIds().map(node);if(ns.length)vRegLines(ns);selAct.delete(true);V.mode='normal';setTimeout(()=>{const t=vEl();if(t){vRaw(t);vSet(t,0)}vimShow()},0);return true}
+  if(k==='y'||k==='Y'){const ids=selIds();if(ids.length){vRegLines(ids.map(node));toast('Yanked '+ids.length+(ids.length===1?' item':' items'))}const f=ids[0];clearSel(f);if(f)vFocus(f,0,'normal');return true}
+  if(k==='>'||k==='<'){k==='>'?selAct.indent():selAct.outdent();return true}
+  if(k==='Escape'||k==='V'||k==='v'){const f=sel.focus;clearSel(f);if(f)vFocus(f,0,'normal');return true}
+  if(k.length===1)return true;
+  return false;
+}
+document.addEventListener('keydown',e=>{
+  if(!vimOn()||e.isComposing)return;
+  let k=e.key;const ctrl=e.ctrlKey||e.metaKey;
+  if(ctrl&&k==='['){k='Escape'}
+  if(sel){if(vLineKey(Object.assign({key:k,ctrlKey:ctrl&&k!=='Escape',metaKey:false,altKey:e.altKey}))){e.preventDefault();e.stopPropagation();vimShow()}return}
+  const t=vEl();if(!t||e.target!==t)return;
+  const stop=()=>{e.preventDefault();e.stopPropagation()};
+  if(V.mode==='insert'){if(k==='Escape'&&tagPop.hidden){stop();vEsc(t)}return}
+  if(['Shift','Control','Alt','Meta','CapsLock','Dead'].includes(k))return;
+  if(e.altKey&&!ctrl){
+    const lk=k.toLowerCase();
+    if(lk==='j'||lk==='k'){stop();const p=getSel(t)[0];act.move(t.dataset.id,lk==='k'?-1:1,p);vFocus(t.dataset.id,p,'normal');return}
+    return;
+  }
+  if(ctrl&&k!=='Escape'){
+    const lk=k.toLowerCase();
+    if(lk==='r'||lk==='d'||lk==='u'){stop();vRun('<C-'+lk+'>')}
+    return;
+  }
+  if(e.shiftKey&&(k==='ArrowUp'||k==='ArrowDown'))return;
+  if(k==='Tab'){stop();vRun(e.shiftKey?'S-Tab':'Tab');return}
+  if(k.length===1||['Escape','Enter','Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(k)){stop();vRun(k)}
+},true);
+/* typing never changes the text in normal or visual mode */
+list.addEventListener('beforeinput',e=>{
+  if(!vimOn()||V.mode==='insert'||!e.target.classList||!e.target.classList.contains('txt'))return;
+  if(e.inputType==='insertFromPaste'||e.inputType==='insertFromDrop')return;
+  e.preventDefault();
+},true);
+/* Ctrl+V in normal mode puts the clipboard after the cursor */
+list.addEventListener('paste',e=>{
+  if(!vimOn()||V.mode==='insert')return;const t=e.target;if(!t.classList||!t.classList.contains('txt'))return;
+  vRaw(t);const L=t.textContent.length,p=Math.min(getSel(t)[0]+(L?1:0),L);setCaret(t,p);
+  setTimeout(()=>{const x=vEl();if(x&&V.mode!=='insert'){V.mode='normal';vSet(x,getSel(x)[0]-1);vimShow()}},0);
+},true);
+/* clicking into an item shows the block cursor where you clicked; dragging across text starts visual mode */
+function vSync(){requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  if(!vimOn()){vimShow();return}
+  const t=vEl();if(!t||V.mode==='insert'||sel){vimShow();return}
+  vRaw(t);const[a,b]=getSel(t);
+  if(b-a>1){V.mode='visual';V.a=a;V.p=b-1;vVis(t)}
+  else{if(V.mode==='visual')V.mode='normal';vSet(t,a)}
+  vimShow();
+}))}
+list.addEventListener('focusin',e=>{if(vimOn()&&e.target.classList&&e.target.classList.contains('txt'))vSync()});
+list.addEventListener('mouseup',e=>{if(vimOn()&&e.target.closest&&e.target.closest('.txt'))vSync()});
+list.addEventListener('focusout',()=>setTimeout(vimShow,0));
+document.addEventListener('pointerup',()=>setTimeout(vimShow,0));
+$('vimBtn').hidden=touchOnly();
+$('vimBtn').addEventListener('click',()=>{
+  store.settings.vim=!store.settings.vim;$('vimBtn').setAttribute('aria-pressed',String(!!store.settings.vim));save();
+  V.mode='normal';V.op=null;V.pend='';V.count='';
+  toast(store.settings.vim?'Vim keys on. Esc for normal mode, i to type':'Vim keys off');
+  const f=state.last&&idx.has(state.last.id)?state.last.id:null;
+  if(f&&store.settings.vim)setTimeout(()=>vFocus(f,0,'normal'),0);else vimShow();
 });
 
 /* ---------- Plain-text files ---------- */
