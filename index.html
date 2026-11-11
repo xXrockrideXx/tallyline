@@ -481,7 +481,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     </dl>
     <h3>Vim keys (⋯ → Vim keys, on a PC)</h3>
     <dl class="keys">
-      <dt>Modes</dt><dd><kbd>Esc</kbd> or <kbd>Ctrl</kbd>+<kbd>[</kbd> normal · <kbd>i</kbd> <kbd>a</kbd> <kbd>I</kbd> <kbd>A</kbd> type · <kbd>o</kbd> <kbd>O</kbd> new item below / above · <kbd>v</kbd> visual · <kbd>V</kbd> select whole items. The mode shows bottom right</dd>
+      <dt>Modes</dt><dd><kbd>Esc</kbd>, <kbd>Ctrl</kbd>+<kbd>[</kbd> or <kbd>j</kbd><kbd>j</kbd> / <kbd>j</kbd><kbd>k</kbd> normal · <kbd>i</kbd> <kbd>a</kbd> <kbd>I</kbd> <kbd>A</kbd> type · <kbd>o</kbd> <kbd>O</kbd> new item below / above · <kbd>v</kbd> visual · <kbd>V</kbd> select whole items. The mode shows bottom right</dd>
       <dt>Move</dt><dd><kbd>h</kbd> <kbd>l</kbd> <kbd>w</kbd> <kbd>b</kbd> <kbd>e</kbd> <kbd>W</kbd> <kbd>B</kbd> <kbd>E</kbd> <kbd>0</kbd> <kbd>^</kbd> <kbd>$</kbd> <kbd>f</kbd> <kbd>t</kbd> <kbd>F</kbd> <kbd>T</kbd> <kbd>;</kbd> <kbd>,</kbd> <kbd>%</kbd> in the item; <kbd>j</kbd> <kbd>k</kbd> items, <kbd>gg</kbd> <kbd>G</kbd> first / last, <kbd>Ctrl</kbd>+<kbd>d</kbd> <kbd>u</kbd> ten items. Counts work: 3j, 2dw</dd>
       <dt>Edit</dt><dd><kbd>x</kbd> <kbd>X</kbd> <kbd>s</kbd> <kbd>S</kbd> <kbd>r</kbd> <kbd>~</kbd> <kbd>C</kbd> <kbd>D</kbd> <kbd>J</kbd> join the next item, <kbd>d</kbd> <kbd>c</kbd> <kbd>y</kbd> with a motion or iw aw i" i( and so on, <kbd>gu</kbd> <kbd>gU</kbd> case, <kbd>.</kbd> repeat, <kbd>u</kbd> undo, <kbd>Ctrl</kbd>+<kbd>r</kbd> redo</dd>
       <dt>Items</dt><dd><kbd>dd</kbd> delete the item with its sub-items, <kbd>yy</kbd> copy it, <kbd>p</kbd> <kbd>P</kbd> put it below / above, <kbd>cc</kbd> retype it, <kbd>&gt;&gt;</kbd> <kbd>&lt;&lt;</kbd> indent / outdent, <kbd>Alt</kbd>+<kbd>j</kbd> <kbd>k</kbd> move it down / up</dd>
@@ -3007,7 +3007,16 @@ document.addEventListener('keydown',e=>{
   if(sel){if(vLineKey(Object.assign({key:k,ctrlKey:ctrl&&k!=='Escape',metaKey:false,altKey:e.altKey}))){e.preventDefault();e.stopPropagation();vimShow()}return}
   const t=vEl();if(!t||e.target!==t)return;
   const stop=()=>{e.preventDefault();e.stopPropagation()};
-  if(V.mode==='insert'){if(k==='Escape'&&tagPop.hidden){stop();vEsc(t)}return}
+  if(V.mode==='insert'){
+    if(k==='Escape'&&(tagPop.hidden||tagUI.el!==t)){stop();hideTags();vEsc(t);return}
+    /* jj or jk typed quickly also leaves insert mode */
+    if((k==='j'||k==='k')&&!e.shiftKey&&V.jAt&&Date.now()-V.jAt<350&&V.jAt.id===t.dataset.id){
+      const n=node(t.dataset.id),q=getSel(t)[0];
+      if(n&&q>0&&n.text[q-1]==='j'){stop();V.jAt=0;n.text=n.text.slice(0,q-1)+n.text.slice(q);t.textContent=n.text;refreshResults();save();setCaret(t,q-1);vEsc(t);return}
+    }
+    if(k==='j'&&!e.shiftKey){V.jAt=Object.assign(new Number(Date.now()),{id:t.dataset.id})}else V.jAt=0;
+    return;
+  }
   if(['Shift','Control','Alt','Meta','CapsLock','Dead'].includes(k))return;
   if(e.altKey&&!ctrl){
     const lk=k.toLowerCase();
@@ -3046,7 +3055,21 @@ function vSync(){requestAnimationFrame(()=>requestAnimationFrame(()=>{
 }))}
 list.addEventListener('focusin',e=>{if(vimOn()&&e.target.classList&&e.target.classList.contains('txt'))vSync()});
 list.addEventListener('mouseup',e=>{if(vimOn()&&e.target.closest&&e.target.closest('.txt'))vSync()});
-list.addEventListener('focusout',()=>setTimeout(vimShow,0));
+list.addEventListener('focusout',e=>{
+  setTimeout(vimShow,0);
+  /* some browser add-ons (Vimium and the like) take Esc and just leave the item: treat that as Esc */
+  const t=e.target;
+  if(!vimOn()||!t.classList||!t.classList.contains('txt')||e.relatedTarget||Date.now()-vLastPtr<400)return;
+  const pos=vCaret.id===t.dataset.id?vCaret.p:getSel(t)[0];
+  setTimeout(()=>{
+    if(sel||!t.isConnected||!document.hasFocus())return;
+    const a=document.activeElement;if(a&&a!==document.body&&a!==document.documentElement)return;
+    t.focus();vRaw(t);setCaret(t,Math.min(pos,t.textContent.length));
+    if(V.mode==='insert')vEsc(t);else{V.mode='normal';V.op=null;V.pend='';V.count='';vSet(t,getSel(t)[0]);vimShow()}
+  },0);
+});
+let vCaret={id:null,p:0};document.addEventListener('selectionchange',()=>{const t=vEl();if(t&&t.dataset.raw)vCaret={id:t.dataset.id,p:getSel(t)[0]}});
+let vLastPtr=0;document.addEventListener('pointerdown',()=>{vLastPtr=Date.now()},true);
 document.addEventListener('pointerup',()=>setTimeout(vimShow,0));
 $('vimBtn').hidden=touchOnly();
 $('vimBtn').addEventListener('click',()=>{
