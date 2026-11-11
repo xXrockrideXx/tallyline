@@ -477,7 +477,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <dl class="keys">
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
       <dt><code>Fuel =:</code></dt><dd>Total of the items under it, with a count. Add-ons go after the =</dd>
-      <dt><code>?? 1% :</code></dt><dd>A query: counts the matching entries in its section (the heading above with : or =). Tap the count to list them. Add in:NS to look under one heading instead, or in:all for every document. % is a wildcard: 1% starts with 1, %door% contains door. OR, -word and is:open work too</dd>
+      <dt><code>?? 1% :</code></dt><dd>A query: counts the matching entries in its section (the heading above with : or =). Tap the count to list them. Add in:NS to look under one heading instead (the nearest one with that name), or in:all for every document. % is a wildcard: 1% starts with 1, %door% contains door. OR, -word and is:open work too</dd>
       <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon). A line like <code>Technical: Bonolo, Jaco</code> counts each name, and <code>101: 1,3,5</code> or <code>301: 1-10</code> counts each number. Add a comment after a semicolon: <code>101: 1-3; PTU loose</code>. Counts show in brackets, like (15)</dd>
       <dt><code>2026.12.25 - today =</code></dt><dd>Days between dates. Also 2026.11.01 + 30 = for a date 30 days later</dd>
       <dt><code>17:15 - 07:30 =</code></dt><dd>Hours and minutes (9:45). A heading with = adds up hours underneath</dd>
@@ -1152,7 +1152,8 @@ const asVal=x=>x.u?{v:x.v,u:x.u,tm:x.tm,st:x.st}:x.v;
    that ends with : or = (otherwise the whole document). in:NS looks under that heading instead, in:all in every document.
    % (or *) is a wildcard; the search box rules apply too (OR, -word, is:open, is:done). Tap the count to list the matches. ---------- */
 const isQuery=t=>/^\s*\?\?/.test(t||'');
-const queryText=t=>t.replace(/^\s*\?\?\s*/,'').replace(/\s*:\s*$/,'').trim();
+/* only a colon with a space before it is the count ending; GT: stays part of the pattern */
+const queryText=t=>t.replace(/^\s*\?\?\s*/,'').replace(/\s+:\s*$/,'').trim();
 /* a heading whose sub-items are all queries is just a holder for them, and is not counted itself */
 const isQueryHolder=x=>x.children.length>0&&x.children.every(k=>isQuery(k.text)||!k.text.trim());
 const headName=t=>plain(t).replace(/\s*(?:=[:%]*|:=%?|:)\s*$/,'').trim().toLowerCase();
@@ -1164,10 +1165,14 @@ function queryRun(c,root){
   let scopes;
   if(ins.includes('all'))scopes=store.docs.map(d=>({root:d.root,doc:d}));
   else if(ins.length){
-    const all=[];(function w(x){x.children.forEach(k=>{all.push(k);w(k)})})(root);
+    /* the nearest heading of that name wins: look in the query's own branch first, then further out */
+    const under=x=>{const o=[];(function w(y){y.children.forEach(k=>{o.push(k);w(k)})})(x);return o};
+    const ups=[];for(let p=par(c.id);p;p=p.id==='root'?null:par(p.id))ups.push(p);if(!ups.length||ups[ups.length-1]!==root)ups.push(root);
     scopes=[];
-    ins.forEach(name=>{let hit=all.filter(k=>k.children.length&&headName(k.text)===name);
-      if(!hit.length)hit=all.filter(k=>k.children.length&&headName(k.text).startsWith(name));
+    ins.forEach(name=>{let hit=[];
+      for(const a of ups){const all=under(a).filter(k=>k.children.length&&!isQuery(k.text));
+        hit=all.filter(k=>headName(k.text)===name);if(!hit.length)hit=all.filter(k=>headName(k.text).startsWith(name));
+        if(hit.length)break}
       hit.forEach(h=>scopes.push({root:h}))});
   }else{
     let scope=null;for(let p=par(c.id);p;p=par(p.id)){if(p.id==='root'||calcMode(p.text)){scope=p;break}}
