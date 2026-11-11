@@ -477,7 +477,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <dl class="keys">
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
       <dt><code>Fuel =:</code></dt><dd>Total of the items under it, with a count. Add-ons go after the =</dd>
-      <dt><code>?? 1% :</code></dt><dd>A query: counts the matching entries in its section (the heading above with : or =). Tap the count to list them. Add in:NS to look under one heading instead (the nearest one with that name), or in:all for every document. % is a wildcard: 1% starts with 1, %door% contains door. OR, -word and is:open work too</dd>
+      <dt><code>?? 1% :</code></dt><dd>A query: counts the matching entries in its section (the heading above with : or =, otherwise the branch it sits in). Tap the count to list them. Add in:NS to look under one heading instead (the nearest one with that name), in:doc for this whole document, or in:all for every document. % is a wildcard: 1% starts with 1, %door% contains door. OR, -word and is:open work too</dd>
       <dt><code>Jobs :</code></dt><dd>Count of the items under it (space before the colon). A line like <code>Technical: Bonolo, Jaco</code> counts each name, and <code>101: 1,3,5</code> or <code>301: 1-10</code> counts each number. Add a comment after a semicolon: <code>101: 1-3; PTU loose</code>. Counts show in brackets, like (15)</dd>
       <dt><code>2026.12.25 - today =</code></dt><dd>Days between dates. Also 2026.11.01 + 30 = for a date 30 days later</dd>
       <dt><code>17:15 - 07:30 =</code></dt><dd>Hours and minutes (9:45). A heading with = adds up hours underneath</dd>
@@ -1149,7 +1149,7 @@ function sumOf(list){
 }
 const asVal=x=>x.u?{v:x.v,u:x.u,tm:x.tm,st:x.st}:x.v;
 /* ---------- Queries: "?? 1% :" counts the matching entries in its section: the nearest heading above
-   that ends with : or = (otherwise the whole document). in:NS looks under that heading instead, in:all in every document.
+   that ends with : or = (otherwise the branch it sits in; in:doc for the whole document). in:NS looks under that heading instead, in:all in every document.
    % (or *) is a wildcard; the search box rules apply too (OR, -word, is:open, is:done). Tap the count to list the matches. ---------- */
 const isQuery=t=>/^\s*\?\?/.test(t||'');
 /* only a colon with a space before it is the count ending; GT: stays part of the pattern */
@@ -1164,6 +1164,7 @@ function queryRun(c,root){
   const m=compileSearch(q);
   let scopes;
   if(ins.includes('all'))scopes=store.docs.map(d=>({root:d.root,doc:d}));
+  else if(ins.includes('doc'))scopes=[{root}];
   else if(ins.length){
     /* the nearest heading of that name wins: look in the query's own branch first, then further out */
     const under=x=>{const o=[];(function w(y){y.children.forEach(k=>{o.push(k);w(k)})})(x);return o};
@@ -1175,7 +1176,9 @@ function queryRun(c,root){
         if(hit.length)break}
       hit.forEach(h=>scopes.push({root:h}))});
   }else{
-    let scope=null;for(let p=par(c.id);p;p=par(p.id)){if(p.id==='root'||calcMode(p.text)){scope=p;break}}
+    /* the nearest heading with : or =; failing that, the branch the query sits in (a holder of only queries doesn't count) */
+    let scope=null,first=null;for(let p=par(c.id);p;p=par(p.id)){if(p.id==='root'||calcMode(p.text)){scope=p;break}if(!first&&!isQueryHolder(p))first=p}
+    if(scope&&scope.id==='root'&&first)scope=first;
     scopes=[{root:scope||root}];
   }
   const seen=new Set(),hits=[];
