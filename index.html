@@ -288,6 +288,19 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 .vimbar.vis{color:var(--avg);border-color:var(--avg)}
 .vimnorm .txt[data-raw]::selection{background:var(--accent);color:var(--surface)}
 .vimvis .txt[data-raw]::selection{background:var(--accent-soft);color:var(--ink)}
+.alarmbox{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:55;width:min(520px,calc(100% - 24px));display:grid;gap:8px}
+.aring{background:var(--surface);border:1px solid var(--tot);border-left:5px solid var(--tot);border-radius:10px;padding:10px 12px;box-shadow:0 12px 34px rgba(0,0,0,.2);display:grid;gap:8px;animation:aring 1.2s ease-in-out infinite}
+.aring.missed{border-color:var(--line);border-left-color:var(--avg);animation:none}
+@keyframes aring{50%{box-shadow:0 12px 34px rgba(0,0,0,.2),0 0 0 4px color-mix(in srgb,var(--tot) 30%,transparent)}}
+@media (prefers-reduced-motion:reduce){.aring{animation:none}}
+.atxt{display:grid;gap:2px}.atxt b{font-size:16px}.atxt span{font-size:13px;color:var(--muted)}
+.abtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.aitem{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:9px 4px;font:inherit;color:inherit;cursor:pointer}
+.aitem:hover{background:var(--accent-soft)}
+.awhen{font:600 13px/1.2 var(--f-mono);color:var(--tot);white-space:nowrap}
+.amid{display:grid;gap:1px;min-width:0}.amid b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.amid small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ain{font-size:12px;color:var(--muted);white-space:nowrap}
+.tag[data-tag^="#alarm" i]::before{content:"⏰ "}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;max-width:calc(100% - 32px);box-sizing:border-box}
 .drawerscrim{display:none}
 
@@ -373,6 +386,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="msep"></div>
         <button class="mi" id="printBtn" type="button">Print</button>
         <button class="mi" id="exportBtn" type="button">Export and backup</button>
+        <button class="mi" id="alarmsBtn" type="button">Alarms</button>
         <button class="mi" id="vimBtn" type="button" aria-pressed="false">Vim keys</button>
         <button class="mi" id="keysBtn" type="button">Help and shortcuts</button>
         <div class="msep"></div>
@@ -488,6 +502,10 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt>Folds and search</dt><dd><kbd>za</kbd> <kbd>zo</kbd> <kbd>zc</kbd> fold, <kbd>zM</kbd> <kbd>zR</kbd> fold / unfold all, <kbd>zz</kbd> centre. <kbd>/</kbd> search, <kbd>n</kbd> <kbd>N</kbd> next / previous match, <kbd>*</kbd> search the word under the cursor</dd>
       <dt>Still works</dt><dd><kbd>Ctrl</kbd>+<kbd>Enter</kbd> done, <kbd>Alt</kbd>+<kbd>→</kbd> <kbd>←</kbd> zoom, <kbd>Ctrl</kbd>+<kbd>C</kbd> <kbd>V</kbd>. Yanks also go to the clipboard</dd>
     </dl>
+    <h3>Alarms</h3>
+    <dl class="keys">
+      <dt>#alarm</dt><dd>on an item with a date and time rings at that time. On a heading, every time under it rings. <code>#alarm-15</code> rings 15 minutes early. ⋯ → Alarms lists what is coming up</dd>
+    </dl>
     <h3>Maths in bullets</h3>
     <dl class="keys">
       <dt><code>1450 * 12 =</code></dt><dd>End with = to show the answer</dd>
@@ -554,6 +572,21 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="vimbar" id="vimBar" hidden></div>
+<div class="alarmbox" id="alarmBox" hidden role="alert"></div>
+<div class="scrim" id="alarmModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="alH">
+    <h2 id="alH">Alarms</h2>
+    <p class="mtext">Add <b>#alarm</b> to an item with a date and time, e.g. <code>Horse race ends @2026.11.13 17:00 #alarm</code>. Put it on a heading (<code>Draws #alarm</code>) and every time under it rings. A time without a date takes the date from the heading above it. <b>#alarm-15</b> rings 15 minutes early.</p>
+    <div class="tlist" id="alarmList"></div>
+    <p class="mtext" style="margin-top:12px">Alarms ring while Tallyline is open, including in another tab. If it was closed, you see what you missed when you come back.</p>
+    <div class="mrow" style="flex-wrap:wrap;gap:8px">
+      <button class="btn" id="alarmIcs" type="button" hidden>Add to phone calendar</button>
+      <button class="btn" id="alarmNotify" type="button" hidden>Also show a pop-up</button>
+      <button class="btn" id="alarmTest" type="button">Test sound</button>
+      <span style="flex:1"></span><button class="btn" data-close type="button">Close</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -3079,6 +3112,150 @@ $('vimBtn').addEventListener('click',()=>{
   const f=state.last&&idx.has(state.last.id)?state.last.id:null;
   if(f&&store.settings.vim)setTimeout(()=>vFocus(f,0,'normal'),0);else vimShow();
 });
+
+/* ---------- Alarms: #alarm on an item (or on a heading, for everything under it) with a date and time.
+   #alarm-15 rings 15 minutes early. They ring while Tallyline is open; missed ones show when you come back. ---------- */
+const AKEY='tallyline.alarms';
+let alarmLog={fired:{},snooze:[],seen:{}};
+try{const o=JSON.parse(localStorage.getItem(AKEY)||'null');if(o&&typeof o==='object')alarmLog={fired:o.fired||{},snooze:o.snooze||[],seen:o.seen||{}}}catch(e){}
+function alarmSave(){try{localStorage.setItem(AKEY,JSON.stringify(alarmLog))}catch(e){}}
+const A_DATE=/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/;
+const A_TIME=/(^|[^\d:.])(\d{1,2}):(\d{2})(?![\d:])/;
+const A_TAG=/(^|\s)#alarm(?:-(\d{1,4}))?(?=$|[\s.,;:!?)])/i;
+function aDate(t){const m=t.match(A_DATE);if(!m)return null;const y=+m[1],mo=+m[2],d=+m[3];const x=new Date(y,mo-1,d);return x.getMonth()===mo-1&&x.getDate()===d?x:null}
+function aTime(t){const s=t.replace(A_DATE,' ');const m=s.match(A_TIME);if(!m)return null;const h=+m[2],mi=+m[3];return h<24&&mi<60?[h,mi]:null}
+function aLabel(t){return plain(t).replace(A_TAG,' ').replace(/(^|\s)@?\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2}/g,' ').replace(/(^|\s)\d{1,2}:\d{2}(?![\d:])/g,' ').replace(/\s+/g,' ').trim()}
+/* every alarm in every document */
+function alarmList(){
+  const out=[];
+  store.docs.forEach(d=>{
+    if(d.type!=='outline')return;
+    (function walk(n,trail,date,early,on){
+      n.children.forEach(k=>{
+        const tg=k.text.match(A_TAG),here=!!tg,kEarly=tg&&tg[2]?+tg[2]:(here?0:early),kOn=on||here;
+        const kd=aDate(k.text)||date,tm=aTime(k.text);
+        if(kOn&&tm&&kd&&!k.done){
+          const at=new Date(kd.getFullYear(),kd.getMonth(),kd.getDate(),tm[0],tm[1]).getTime();
+          const name=aLabel(k.text),where=trail.filter(Boolean);
+          out.push({key:d.id+'|'+k.id+'|'+at+'|'+kEarly,doc:d.id,docTitle:d.title||'Untitled',id:k.id,at,ring:at-kEarly*6e4,early:kEarly,
+            label:name||where[where.length-1]||'Alarm',where:(name?where:where.slice(0,-1)).slice(-2).join(' › ')});
+        }
+        walk(k,trail.concat(plain(k.text).replace(A_TAG,' ').replace(/\s+/g,' ').trim()),kd,kEarly,kOn);
+      });
+    })(d.root,[],null,0,false);
+  });
+  return out.sort((a,b)=>a.ring-b.ring);
+}
+function aWhen(t){const d=new Date(t);return d.getFullYear()+'.'+pad2(d.getMonth()+1)+'.'+pad2(d.getDate())+' '+pad2(d.getHours())+':'+pad2(d.getMinutes())}
+function aIn(ms){if(ms<6e4)return'now';const m=Math.round(ms/6e4);if(m<60)return'in '+m+' min';const h=Math.floor(m/60),r=m%60;if(h<24)return'in '+h+' h'+(r?' '+r+' min':'');const dd=Math.floor(h/24);return'in '+dd+(dd===1?' day':' days')}
+
+/* sound: short beeps, repeated until stopped (a minute at most) */
+let aCtx=null;
+function aUnlock(){try{if(!aCtx){const C=window.AudioContext||window.webkitAudioContext;if(C)aCtx=new C()}if(aCtx&&aCtx.state==='suspended')aCtx.resume()}catch(e){}}
+document.addEventListener('pointerdown',aUnlock,{capture:true});document.addEventListener('keydown',aUnlock,{capture:true});
+function aBeep(){
+  if(!aCtx)return;try{
+    const t0=aCtx.currentTime;
+    [0,.18,.36].forEach(o=>{const g=aCtx.createGain(),v=aCtx.createOscillator();v.type='sine';v.frequency.value=880;
+      g.gain.setValueAtTime(0,t0+o);g.gain.linearRampToValueAtTime(.35,t0+o+.02);g.gain.linearRampToValueAtTime(0,t0+o+.14);
+      v.connect(g).connect(aCtx.destination);v.start(t0+o);v.stop(t0+o+.16)});
+  }catch(e){}
+}
+const ringing=new Map();let ringT=null,ringUntil=0,titleWas=null;
+function aRingLoop(){
+  clearInterval(ringT);ringUntil=Date.now()+6e4;aBeep();try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}
+  ringT=setInterval(()=>{if(!ringing.size||Date.now()>ringUntil){clearInterval(ringT);ringT=null;return}aBeep();try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}},1600);
+}
+function aStopSound(){clearInterval(ringT);ringT=null;try{navigator.vibrate&&navigator.vibrate(0)}catch(e){}}
+function drawRing(){
+  const box=$('alarmBox');box.textContent='';
+  if(!ringing.size){box.hidden=true;aStopSound();if(titleWas!==null){document.title=titleWas;titleWas=null}return}
+  box.hidden=false;
+  ringing.forEach(a=>{
+    const r=document.createElement('div');r.className='aring'+(a.missed?' missed':'');
+    const tx=document.createElement('div');tx.className='atxt';
+    const b=document.createElement('b');b.textContent=(a.missed?'Missed: ':'')+a.label;
+    const s=document.createElement('span');s.textContent=aWhen(a.at)+(a.early?' (rang '+a.early+' min early)':'')+(a.where?' · '+a.where:'');
+    tx.append(b,s);
+    const bt=(label,cls,fn)=>{const x=document.createElement('button');x.type='button';x.className='btn'+(cls?' '+cls:'');x.textContent=label;x.addEventListener('click',fn);return x};
+    const row=document.createElement('div');row.className='abtns';
+    if(!a.missed)row.append(bt('Snooze 5 min','',()=>{alarmLog.snooze.push(Object.assign({},a,{ring:Date.now()+5*6e4,snoozed:true}));alarmSave();ringing.delete(a.key);drawRing()}));
+    row.append(bt('Open','',()=>{ringing.delete(a.key);drawRing();goTo(a.doc,a.id)}));
+    row.append(bt(a.missed?'OK':'Stop','primary',()=>{ringing.delete(a.key);drawRing()}));
+    r.append(tx,row);box.append(r);
+  });
+  const live=[...ringing.values()].filter(a=>!a.missed);
+  if(live.length){if(titleWas===null)titleWas=document.title;document.title='⏰ '+live[0].label}
+}
+function aRing(a){
+  ringing.set(a.key,a);drawRing();
+  if(!a.missed){
+    aRingLoop();
+    try{if('Notification' in window&&Notification.permission==='granted'&&document.visibilityState!=='visible'){const n=new Notification('⏰ '+a.label,{body:aWhen(a.at)+(a.where?' · '+a.where:''),tag:a.key,requireInteraction:true});n.onclick=()=>{window.focus();n.close()}}}catch(e){}
+  }
+}
+/* check the clock */
+function alarmTick(){
+  const now=Date.now(),list2=alarmList();
+  list2.forEach(a=>{
+    if(!alarmLog.seen[a.key])alarmLog.seen[a.key]=now;
+    if(alarmLog.fired[a.key]||now<a.ring)return;
+    alarmLog.fired[a.key]=now;
+    /* an alarm added after its time has passed stays quiet */
+    if(alarmLog.seen[a.key]>a.ring)return;
+    const late=now-a.ring;
+    if(late<10*6e4)aRing(a);
+    else if(late<12*36e5)aRing(Object.assign({},a,{missed:true}));
+  });
+  const keep=[];
+  alarmLog.snooze.forEach(s=>{if(now>=s.ring){if(now-s.ring<12*36e5)aRing(s)}else keep.push(s)});
+  alarmLog.snooze=keep;
+  /* forget alarms older than three days */
+  for(const k in alarmLog.fired)if(now-alarmLog.fired[k]>3*864e5)delete alarmLog.fired[k];
+  for(const k in alarmLog.seen)if(now-alarmLog.seen[k]>40*864e5&&!list2.some(a=>a.key===k))delete alarmLog.seen[k];
+  alarmSave();
+}
+setInterval(alarmTick,10000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')alarmTick()});
+/* ⋯ → Alarms: what is coming up */
+function drawAlarms(){
+  const box=$('alarmList');box.textContent='';const now=Date.now();
+  const up=alarmList().filter(a=>a.ring>now-6e4).concat(alarmLog.snooze).sort((a,b)=>a.ring-b.ring).slice(0,60);
+  if(!up.length){const p=document.createElement('p');p.className='mtext';p.textContent='No alarms coming up.';box.append(p)}
+  up.forEach(a=>{
+    const b=document.createElement('button');b.type='button';b.className='aitem';
+    const t=document.createElement('span');t.className='awhen';t.textContent=aWhen(a.at).slice(5);
+    const m=document.createElement('span');m.className='amid';
+    const l=document.createElement('b');l.textContent=a.label;
+    const w=document.createElement('small');w.textContent=[a.docTitle,a.where].filter(Boolean).join(' › ')+(a.snoozed?' · snoozed':a.early?' · rings '+a.early+' min early':'');
+    m.append(l,w);
+    const i=document.createElement('span');i.className='ain';i.textContent=aIn(a.ring-now);
+    b.append(t,m,i);b.addEventListener('click',()=>{closeModals();goTo(a.doc,a.id)});box.append(b);
+  });
+  const nb=$('alarmNotify');
+  if(!('Notification' in window)||touchOnly())nb.hidden=true;
+  else{nb.hidden=Notification.permission==='granted';nb.textContent=Notification.permission==='denied'?'Pop-ups are blocked in this browser\'s site settings':'Also show a pop-up when Tallyline is in the background';nb.disabled=Notification.permission==='denied'}
+}
+$('alarmsBtn').addEventListener('click',()=>{setPop(false);aUnlock();drawAlarms();openModal($('alarmModal'))});
+$('alarmNotify').addEventListener('click',()=>{try{Notification.requestPermission().then(drawAlarms)}catch(e){}});
+$('alarmTest').addEventListener('click',()=>{aUnlock();aBeep()});
+setTimeout(alarmTick,1500);
+/* ---------- Alarms → calendar file (GitHub version: the phone's own calendar rings even when Tallyline is closed) ---------- */
+$('alarmIcs').hidden=false;
+$('alarmIcs').addEventListener('click',()=>{
+  const now=Date.now(),up=alarmList().filter(a=>a.ring>now).slice(0,100);
+  if(!up.length){toast('No alarms coming up');return}
+  const f=t=>{const d=new Date(t);return d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+'T'+pad2(d.getHours())+pad2(d.getMinutes())+'00'};
+  const esc=x=>String(x).replace(/[\;,]/g,m=>'\\'+m).replace(/\n/g,' ');
+  const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Tallyline//Alarms//EN','CALSCALE:GREGORIAN'];
+  up.forEach(a=>{L.push('BEGIN:VEVENT','UID:'+a.key.replace(/[^\w.-]/g,'-')+'@tallyline','DTSTAMP:'+f(now),'DTSTART:'+f(a.at),'DURATION:PT5M','SUMMARY:'+esc(a.label),
+    'DESCRIPTION:'+esc([a.docTitle,a.where].filter(Boolean).join(' › ')),'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+esc(a.label),'TRIGGER:-PT'+a.early+'M','END:VALARM','END:VEVENT')});
+  L.push('END:VCALENDAR');
+  const blob=new Blob([L.join('\r\n')+'\r\n'],{type:'text/calendar'}),url=URL.createObjectURL(blob),x=document.createElement('a');
+  x.href=url;x.download='tallyline-alarms.ics';document.body.append(x);x.click();x.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+  toast('Open the file to add '+up.length+(up.length===1?' alarm':' alarms')+' to your calendar');
+});
+
 
 /* ---------- Plain-text files ---------- */
 const EXT='.txt';
