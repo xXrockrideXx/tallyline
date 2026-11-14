@@ -3167,7 +3167,7 @@ function aBeep(){
 }
 const ringing=new Map();let ringT=null,ringUntil=0,titleWas=null;
 function aRingLoop(){
-  clearInterval(ringT);ringUntil=Date.now()+6e4;aBeep();try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}
+  clearInterval(ringT);ringUntil=Date.now()+1e4;aBeep();try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}
   ringT=setInterval(()=>{if(!ringing.size||Date.now()>ringUntil){clearInterval(ringT);ringT=null;return}aBeep();try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}},1600);
 }
 function aStopSound(){clearInterval(ringT);ringT=null;try{navigator.vibrate&&navigator.vibrate(0)}catch(e){}}
