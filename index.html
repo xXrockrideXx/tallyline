@@ -301,6 +301,10 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 .aitem:hover{background:var(--accent-soft)}
 .vdef{color:var(--var);font-weight:600}
 .vref{color:var(--var);background:var(--var-soft);border-radius:4px;padding:0 3px;font-weight:500}
+.mchs{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;margin-right:8px;vertical-align:1px}
+.mch{font:600 12.5px/1 var(--f-mono);color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:4px 6px;font-variant-numeric:tabular-nums}
+.marea{font:600 10.5px/1 var(--f-mono);letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:3px 5px}
+.node.done>.row .mch{color:var(--muted);background:none;border:1px solid var(--line);text-decoration:line-through}
 .acd{font-family:var(--f-mono);font-size:11.5px;line-height:20px;color:var(--tot);background:var(--tot-soft);border-radius:5px;padding:0 6px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .acd.soon{color:var(--surface);background:var(--tot)}
 .acd.past{color:var(--muted);background:none;border:1px solid var(--line)}
@@ -386,6 +390,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="msep"></div>
         <button class="mi" id="dupBtn" type="button">Duplicate</button>
         <button class="mi" id="excelBtn" type="button">Copy for Excel</button>
+        <button class="mi" id="walkBtn" type="button" hidden>Copy walkabout</button>
         <button class="mi" id="colBtn" type="button" hidden>Copy column</button>
         <div class="msep"></div>
         <button class="mi" id="imgBtn" type="button">Add image to current item</button>
@@ -508,6 +513,10 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <dt>Items</dt><dd><kbd>dd</kbd> delete the item with its sub-items, <kbd>yy</kbd> copy it, <kbd>p</kbd> <kbd>P</kbd> put it below / above, <kbd>cc</kbd> retype it, <kbd>&gt;&gt;</kbd> <kbd>&lt;&lt;</kbd> indent / outdent, <kbd>Alt</kbd>+<kbd>j</kbd> <kbd>k</kbd> move it down / up</dd>
       <dt>Folds and search</dt><dd><kbd>za</kbd> <kbd>zo</kbd> <kbd>zc</kbd> fold, <kbd>zM</kbd> <kbd>zR</kbd> fold / unfold all, <kbd>zz</kbd> centre. <kbd>/</kbd> search, <kbd>n</kbd> <kbd>N</kbd> next / previous match, <kbd>*</kbd> search the word under the cursor</dd>
       <dt>Still works</dt><dd><kbd>Ctrl</kbd>+<kbd>Enter</kbd> done, <kbd>Alt</kbd>+<kbd>→</kbd> <kbd>←</kbd> zoom, <kbd>Ctrl</kbd>+<kbd>C</kbd> <kbd>V</kbd>. Yanks also go to the clipboard</dd>
+    </dl>
+    <h3>Walkabout</h3>
+    <dl class="keys">
+      <dt>$Slots</dt><dd>a heading starting with $ and a word. Under it, each line is machine numbers and the fault: <code>10101 No sound</code>, <code>20201,3,5 Button faulty</code> (20201, 20203 and 20205), <code>30101-4 Lamp out</code> (30101 to 30104). The heading counts the machines, and ticked-off lines count as fixed. ⋯ → Copy walkabout gives one row per machine for Excel</dd>
     </dl>
     <h3>Alarms</h3>
     <dl class="keys">
@@ -1245,8 +1254,39 @@ function queryRun(c,root){
   })})(sc.root,[]));
   return hits;
 }
+/* ---------- Walkabout: a heading starting with $ and a word ($Slots). Lines under it start with machine numbers and the fault:
+   10101 No sound · 20201,3,5 Button faulty (20201, 20203, 20205) · 30101-4 Lamp out (30101 to 30104) ---------- */
+const isWalk=t=>/^\s*\$[A-Za-z]/.test(t);
+const WALK_RE=/^\s*(\d{4,6})((?:\s*[,\-]\s*\d{1,6})*)(?:\s+(.*))?$/;
+function walkParse(t){
+  const m=(t||'').match(WALK_RE);if(!m)return null;
+  const base=m[1],bank=base.slice(0,-2),out=[base];
+  const full=x=>x.length>=base.length?x:bank+x.padStart(2,'0');
+  let last=base;
+  (m[2].match(/[,\-]\s*\d+/g)||[]).forEach(p=>{
+    const v=full(p.replace(/^[,\-]\s*/,''));
+    if(p[0]==='-'){const a=+last,b=+v;if(b>a&&b-a<=99&&String(a).slice(0,-2)===String(b).slice(0,-2))for(let i=a+1;i<=b;i++)out.push(String(i).padStart(base.length,'0'));else out.push(v)}
+    else out.push(v);
+    last=v;
+  });
+  return{machines:[...new Set(out)],fault:(m[3]||'').trim()};
+}
+/* area labels: 1–4 MFNS (bank 150+ in area 1 is NSSL), 5 prive (501–509 PRNS, 510 PRPR, 511+ PRSM), 6 walkway, 7–9 MFSM (830+ in area 8 is SMSL) */
+function walkArea(m){
+  const a=+m[0],b=+m.slice(0,3);
+  if(a===1&&b>=150)return'NSSL';
+  if(a>=1&&a<=4)return'MFNS';
+  if(a===5)return b<=509?'PRNS':b===510?'PRPR':'PRSM';
+  if(a===6)return'Walkway';
+  if(a===8&&b>=830)return'SMSL';
+  if(a>=7&&a<=9)return'MFSM';
+  return'';
+}
+let WALKIDS=new Set();
+function walkLines(h){const out=[];(function w(n){n.children.forEach(c=>{const p=walkParse(c.text);if(p)out.push({n:c,p});w(c)})})(h);return out}
 let VARS={};
 function evaluate(root){
+  WALKIDS=new Set();(function w(n,on){n.children.forEach(c=>{if(on)WALKIDS.add(c.id);w(c,on||isWalk(c.text))})})(root,false);
   EV=new Map();const scope={};VARS=scope;
   (function group(n,depth){
     if(depth>80)return;
@@ -1281,6 +1321,10 @@ function evaluate(root){
           if(e&&calcMode(x.text)!=='count'&&isNameList(x.text))e.names=n;
           count+=n;
         }
+      }
+      else if(isWalk(t)||(WALKIDS.has(c.id)&&walkParse(t))){
+        group(c,depth+1);
+        if(isWalk(t)){let n2=0,fx=0;walkLines(c).forEach(x=>{n2+=x.p.machines.length;if(x.n.done)fx+=x.p.machines.length});count=n2;if(!n2)count=0;EV.set(c.id,{v:null,show:false,count,walk:{n:n2,fixed:fx}});continue}
       }
       else{
         const expr=t,ctx=mkctx();
@@ -1439,7 +1483,8 @@ function fillChips(els,e,mode){
   }
   const qz=e&&e.count===-1,cn=e?(qz?0:e.count):0,nm=e&&!cn&&e.names?e.names:0;
   if(els.c){
-    if(cn||qz){els.c.hidden=false;els.c.textContent='('+cn+')';els.c.title=e.isq?'Tap to list the matching entries':mode==='count'?'Lines under this one, counting each name in a "Label: name, name" line':'Items under this one that have an amount'}
+    if(e&&e.walk&&cn){els.c.hidden=false;els.c.textContent='('+cn+(e.walk.fixed?' · '+e.walk.fixed+' fixed':'')+')';els.c.title=cn+(cn===1?' machine':' machines')+(e.walk.fixed?', '+e.walk.fixed+' fixed (ticked off)':'')}
+    else if(cn||qz){els.c.hidden=false;els.c.textContent='('+cn+')';els.c.title=e.isq?'Tap to list the matching entries':mode==='count'?'Lines under this one, counting each name in a "Label: name, name" line':'Items under this one that have an amount'}
     else if(nm){els.c.hidden=false;els.c.textContent='('+nm+')';els.c.title=nm+(nm===1?' name':' names')+' on this line'}
     else els.c.hidden=true}
   return v!=null||!!cn||!!nm||!!qz;
@@ -1469,6 +1514,7 @@ function refreshResults(){
     });
     line.after(box);
   });
+  markWalk();
   markVars();
   alarmChips();
   /* when zoomed in, the bullet shown as the heading keeps its value and count */
@@ -1477,6 +1523,16 @@ function refreshResults(){
 }
 /* variables stand out in calculation lines: where one is named (salary = …, spent =:) and wherever it is used again.
    Hover a used one to see its value */
+function markWalk(only){
+  const els=only?[only]:list.querySelectorAll('.txt');
+  els.forEach(t=>{
+    if(t.dataset.raw||t.classList.contains('tabrow'))return;
+    const n=node(t.dataset.id);if(!n||!WALKIDS.has(n.id))return;
+    const p=walkParse(n.text);if(!p||t.querySelector('.mchs'))return;
+    const areas=[...new Set(p.machines.map(walkArea).filter(Boolean))];
+    t.innerHTML='<span class="mchs" contenteditable="false">'+p.machines.map(m=>'<span class="mch">'+m+'</span>').join('')+(areas.length?'<span class="marea">'+areas.join(' ')+'</span>':'')+'</span>'+fmtText(p.fault);
+  });
+}
 function markVars(only){
   const names=Object.keys(VARS).filter(k=>/^[A-Za-z_]\w*$/.test(k));
   const els=only?[only]:list.querySelectorAll('.txt');
@@ -1821,7 +1877,7 @@ list.addEventListener('focusout',e=>{
   const t=e.target;
   if(t.classList.contains('txt')){
     const n=node(t.dataset.id);
-    if(n&&t.isConnected){t.innerHTML=fmtText(n.text);delete t.dataset.raw;hydrateImgs(t);markVars(t);if(isRow(n.text)||t.closest('.trow'))applyTables()}
+    if(n&&t.isConnected){t.innerHTML=fmtText(n.text);delete t.dataset.raw;hydrateImgs(t);markWalk(t);markVars(t);if(isRow(n.text)||t.closest('.trow'))applyTables()}
   }else if(t.classList.contains('note')){
     const n=node(t.dataset.id);
     if(n&&!n.note){n.note=null;t.remove();save()}
@@ -2542,6 +2598,22 @@ function duplicateDoc(){
 }
 $('dupBtn').addEventListener('click',duplicateDoc);
 
+/* ---------- Copy walkabout: one row per machine ---------- */
+function walkHeads(){
+  const z=node(cur().zoom)||cur().root,out=[];
+  if(isWalk(z.text||''))return[z];
+  (function w(n){n.children.forEach(c=>{if(isWalk(c.text))out.push(c);else w(c)})})(z);
+  return out;
+}
+$('walkBtn').addEventListener('click',()=>{
+  const hs=walkHeads(),many=hs.length>1,rows=[];
+  hs.forEach(h=>walkLines(h).forEach(x=>x.p.machines.forEach(m=>{
+    const r=[m,m.slice(0,3),walkArea(m),plain(x.p.fault).replace(/\t/g,' '),x.n.done?'Yes':''];
+    if(many)r.unshift(plain(h.text).replace(/^\s*\$/,''));rows.push(r)})));
+  if(!rows.length){toast('No machines to copy');return}
+  const head=(many?['List']:[]).concat(['Machine','Bank','Area','Fault','Fixed']);
+  copy([head].concat(rows).map(r=>r.join('\t')).join('\n'),'Copied '+rows.length+(rows.length===1?' machine':' machines')+'. Paste into Excel');
+});
 /* ---------- Copy for Excel: item, budget, actual, difference (and % when used) ---------- */
 function excelLabel(n,hasValue){
   const fl=eqFlags(n.text);let t=plain(fl?fl.expr:n.text).trim();
@@ -2686,7 +2758,7 @@ $('colBtn').addEventListener('click',()=>{
   const ci=columnInfo();if(!ci)return;
   copy(ci.values.join('\n'),'Copied '+ci.values.length+' '+(ci.values.length===1?'entry':'entries')+' from '+ci.name);setPop(false)});
 function setPop(on){pop.hidden=!on;moreBtn.setAttribute('aria-expanded',String(on));
-  if(on){fillMove();const blk=cellBlock(),ci=blk?null:columnInfo(),b=$('colBtn');b.hidden=!blk&&!ci;
+  if(on){$('walkBtn').hidden=!walkHeads().length;fillMove();const blk=cellBlock(),ci=blk?null:columnInfo(),b=$('colBtn');b.hidden=!blk&&!ci;
     if(blk)b.textContent='Copy selected cells ('+blk.rows.length+' × '+(blk.hi-blk.lo+1)+')';else if(ci)b.textContent='Copy column “'+ci.name+'”'}else resetDel()}
 moreBtn.addEventListener('click',()=>setPop(pop.hidden));
 document.addEventListener('pointerdown',e=>{if(!pop.hidden&&!pop.contains(e.target)&&!moreBtn.contains(e.target))setPop(false)});
