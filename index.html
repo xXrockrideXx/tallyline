@@ -99,6 +99,8 @@ button{font:inherit;color:inherit}
 .tagpop button{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;border:0;background:none;border-radius:6px;padding:8px 9px;font-size:14px;cursor:pointer;text-align:left;color:var(--accent)}
 .tagpop button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .tagpop button.on{background:var(--accent-soft)}
+.tagpop button.vopt{color:var(--var);font-weight:600}
+.tagpop button.vopt.on{background:var(--var-soft)}
 .tagpop small{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums}
 .pop{position:absolute;top:calc(100% - 4px);right:max(16px,env(safe-area-inset-right,0px));z-index:15;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:6px;width:min(260px,calc(100vw - 32px));box-sizing:border-box;display:flex;flex-direction:column;gap:1px}
 .mi{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;background:none;border-radius:6px;padding:9px 10px;font-size:14px;cursor:pointer;text-align:left}
@@ -2007,7 +2009,15 @@ function tagCheck(t){
     items=linkItems(lm[1],t.dataset.id);
   }else{
     const m=before.match(/(^|\s)([#@])([\p{L}\p{N}_.-]*)$/u);
-    if(!m){hideTags();return}
+    if(!m){
+      const v=varItems(t,txt,a);
+      if(!v){hideTags();return}
+      ({start,end,items}=v);
+      if(!items.length){hideTags();return}
+      const prev=tagUI.el===t&&tagUI.items[tagUI.i]?items.findIndex(x=>x.label===tagUI.items[tagUI.i].label):-1;
+      tagUI={el:t,start,end,items,i:prev>0?prev:0,soft:v.soft,moved:prev>0&&tagUI.moved};
+      drawTags();placeTags(t);return;
+    }
     const sym=m[2],typed=m[3].toLowerCase();start=a-1-m[3].length;
     end=a+txt.slice(a).match(/^[\p{L}\p{N}_.-]*/u)[0].length;
     const word=txt.slice(start+1,end).toLowerCase();
@@ -2022,6 +2032,23 @@ function tagCheck(t){
   tagUI={el:t,start,end,items,i:prev>0?prev:0};
   drawTags();placeTags(t);
 }
+/* after an = (or + - * / ( and the like in a sum), suggest the variables already named in this document */
+function varItems(t,txt,a){
+  const before=txt.slice(0,a),eq=before.indexOf('=');
+  if(eq<0)return null;
+  const own=(txt.match(/^\s*([A-Za-z_]\w*)\s*=/)||[])[1];
+  const names=Object.keys(VARS).filter(k=>/^[A-Za-z_]\w*$/.test(k)&&k!==own);
+  if(!names.length)return null;
+  const w=before.match(/(^|[^\w#@.])([A-Za-z_]\w*)$/);
+  let typed='',start=a,soft=false;
+  if(w&&before.length-w[2].length>eq){typed=w[2];start=a-typed.length}
+  else if(/[=+\-*\/(×÷^,%]\s*$/.test(before)||/\bof\s+$/i.test(before))soft=true;
+  else return null;
+  const end=a+txt.slice(a).match(/^\w*/)[0].length,word=txt.slice(start,end),lt=typed.toLowerCase();
+  const items=names.filter(k=>k.toLowerCase().startsWith(lt)&&k!==word).slice(0,12).map(k=>{
+    const v=VARS[k];return{kind:'var',label:k,sub:v==null?'':fmtVal(typeof v==='object'?v:{v}),insert:k,title:'Variable'}});
+  return{start,end,items,soft};
+}
 function drawTags(){
   tagPop.textContent='';
   tagUI.items.forEach((x,k)=>{
@@ -2029,6 +2056,7 @@ function drawTags(){
     b.setAttribute('role','option');b.setAttribute('aria-selected',String(k===tagUI.i));
     b.innerHTML='<span></span><small></small>';b.querySelector('span').textContent=x.label;b.querySelector('small').textContent=x.sub;
     if(x.kind==='link')b.style.color='var(--ink)';
+    if(x.kind==='var')b.classList.add('vopt');
     if(x.title)b.title=x.title;
     tagPop.append(b);
   });
@@ -2048,7 +2076,7 @@ function placeTags(t){
 function acceptTag(k){
   const u=tagUI,t=u.el,n=t&&node(t.dataset.id),item=u.items[k];if(!n||!item)return;
   const txt=t.textContent,rest=txt.slice(u.end);
-  const ins=item.insert+(rest.startsWith(' ')||(item.kind==='link'&&!rest)?'':' ');
+  const ins=item.insert+(rest.startsWith(' ')||(item.kind==='link'&&!rest)||item.kind==='var'?'':' ');
   beginBurst();
   n.text=(txt.slice(0,u.start)+ins+rest).replace(/\n/g,' ');
   t.textContent=n.text;hideTags();setCaret(t,u.start+ins.length);refreshResults();save();
@@ -2056,7 +2084,9 @@ function acceptTag(k){
 function tagKey(e,t){
   if(tagPop.hidden||tagUI.el!==t)return false;
   const L=tagUI.items.length;
-  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();tagUI.i=(tagUI.i+(e.key==='ArrowDown'?1:-1)+L)%L;drawTags();return true}
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();tagUI.i=(tagUI.i+(e.key==='ArrowDown'?1:-1)+L)%L;tagUI.moved=true;drawTags();return true}
+  /* straight after an = the list is only a hint: Enter still finishes the line unless you picked one with the arrows */
+  if(e.key==='Enter'&&tagUI.soft&&!tagUI.moved){hideTags();return false}
   if((e.key==='Enter'||e.key==='Tab')&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();acceptTag(tagUI.i);return true}
   if(e.key==='Escape'){e.preventDefault();hideTags();return true}
   return false;
