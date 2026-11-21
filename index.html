@@ -1529,8 +1529,7 @@ function markWalk(only){
     if(t.dataset.raw||t.classList.contains('tabrow'))return;
     const n=node(t.dataset.id);if(!n||!WALKIDS.has(n.id))return;
     const p=walkParse(n.text);if(!p||t.querySelector('.mchs'))return;
-    const areas=[...new Set(p.machines.map(walkArea).filter(Boolean))];
-    t.innerHTML='<span class="mchs" contenteditable="false">'+p.machines.map(m=>'<span class="mch">'+m+'</span>').join('')+(areas.length?'<span class="marea">'+areas.join(' ')+'</span>':'')+'</span>'+fmtText(p.fault);
+    t.innerHTML='<span class="mchs" contenteditable="false">'+p.machines.map(m=>'<span class="mch">'+m+'</span>').join('')+'</span>'+fmtText(p.fault);
   });
 }
 function markVars(only){
@@ -2608,10 +2607,10 @@ function walkHeads(){
 $('walkBtn').addEventListener('click',()=>{
   const hs=walkHeads(),many=hs.length>1,rows=[];
   hs.forEach(h=>walkLines(h).forEach(x=>x.p.machines.forEach(m=>{
-    const r=[m,m.slice(0,3),walkArea(m),plain(x.p.fault).replace(/\t/g,' '),x.n.done?'Yes':''];
+    const r=[m,m.slice(0,3),plain(x.p.fault).replace(/\t/g,' '),x.n.done?'Yes':''];
     if(many)r.unshift(plain(h.text).replace(/^\s*\$/,''));rows.push(r)})));
   if(!rows.length){toast('No machines to copy');return}
-  const head=(many?['List']:[]).concat(['Machine','Bank','Area','Fault','Fixed']);
+  const head=(many?['List']:[]).concat(['Machine','Bank','Fault','Fixed']);
   copy([head].concat(rows).map(r=>r.join('\t')).join('\n'),'Copied '+rows.length+(rows.length===1?' machine':' machines')+'. Paste into Excel');
 });
 /* ---------- Copy for Excel: item, budget, actual, difference (and % when used) ---------- */
