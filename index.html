@@ -18,7 +18,7 @@
 :root{
   --bg:#eef1f0; --panel:#e3e8e6; --surface:#fbfcfb; --ink:#17201d; --muted:#5b6763; --faint:#98a39f;
   --line:#d3dbd8; --ring:#d6dedb; --rule:#e4eae7; --rowfocus:#e6ecea;
-  --accent:#2350c4; --accent-soft:#e1e8fb; --result:#94470b; --result-soft:#f8ead9; --tot:#0a6f78; --tot-soft:#d6eff1; --avg:#a52f6c; --avg-soft:#f9e1ee; --tape:#f6f3ec;
+  --accent:#2350c4; --accent-soft:#e1e8fb; --result:#94470b; --result-soft:#f8ead9; --tot:#0a6f78; --tot-soft:#d6eff1; --avg:#a52f6c; --avg-soft:#f9e1ee; --var:#6d3fc0; --var-soft:#ece4fa; --tape:#f6f3ec;
   --hit:#fbeeb0; --danger:#b3261e;
   --f-title:"Schibsted Grotesk","Segoe UI",system-ui,sans-serif;
   --f-body:"Hanken Grotesk","Segoe UI",system-ui,-apple-system,sans-serif;
@@ -28,12 +28,12 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#111614; --panel:#171d1b; --surface:#161c1a; --ink:#e3ebe8; --muted:#94a19c; --faint:#5f6b67;
   --line:#28312e; --ring:#2e3835; --rule:#1f2725; --rowfocus:#1c2422;
-  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --tot:#5fd0da; --tot-soft:#11313a; --avg:#f38cc2; --avg-soft:#3a1a2b; --tape:#1a1f1c;
+  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --tot:#5fd0da; --tot-soft:#11313a; --avg:#f38cc2; --avg-soft:#3a1a2b; --var:#c3a6ff; --var-soft:#2a2140; --tape:#1a1f1c;
   --hit:#4a3f12; --danger:#ff8a80; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#111614; --panel:#171d1b; --surface:#161c1a; --ink:#e3ebe8; --muted:#94a19c; --faint:#5f6b67;
   --line:#28312e; --ring:#2e3835; --rule:#1f2725; --rowfocus:#1c2422;
-  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --tot:#5fd0da; --tot-soft:#11313a; --avg:#f38cc2; --avg-soft:#3a1a2b; --tape:#1a1f1c;
+  --accent:#86a6ff; --accent-soft:#1d2741; --result:#f0a65a; --result-soft:#33261a; --tot:#5fd0da; --tot-soft:#11313a; --avg:#f38cc2; --avg-soft:#3a1a2b; --var:#c3a6ff; --var-soft:#2a2140; --tape:#1a1f1c;
   --hit:#4a3f12; --danger:#ff8a80; color-scheme:dark}
 
 html{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%}
@@ -297,6 +297,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 .abtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .aitem{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:9px 4px;font:inherit;color:inherit;cursor:pointer}
 .aitem:hover{background:var(--accent-soft)}
+.vdef{color:var(--var);font-weight:600}
+.vref{color:var(--var);background:var(--var-soft);border-radius:4px;padding:0 3px;font-weight:500}
 .acd{font-family:var(--f-mono);font-size:11.5px;line-height:20px;color:var(--tot);background:var(--tot-soft);border-radius:5px;padding:0 6px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .acd.soon{color:var(--surface);background:var(--tot)}
 .acd.past{color:var(--muted);background:none;border:1px solid var(--line)}
@@ -323,7 +325,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 /* printing: just the outline (or the zoomed-in item and everything under it), fully open, black on white */
 @media print{
-  html:root:not(#print),html:root[data-theme]:not(#print){--bg:#fff;--surface:#fff;--panel:#f1f1f1;--ink:#000;--muted:#333;--faint:#777;--line:#bbb;--rule:#ddd;--rowfocus:transparent;--accent:#000;--accent-soft:transparent;--result:#000;--result-soft:transparent;--tot:#000;--tot-soft:transparent;--avg:#000;--avg-soft:transparent;--hit:transparent;--ring:#d4d4d4;color-scheme:light}
+  html:root:not(#print),html:root[data-theme]:not(#print){--bg:#fff;--surface:#fff;--panel:#f1f1f1;--ink:#000;--muted:#333;--faint:#777;--line:#bbb;--rule:#ddd;--rowfocus:transparent;--accent:#000;--accent-soft:transparent;--result:#000;--result-soft:transparent;--tot:#000;--tot-soft:transparent;--avg:#000;--avg-soft:transparent;--var:#000;--var-soft:transparent;--hit:transparent;--ring:#d4d4d4;color-scheme:light}
   html,body{height:auto!important;overflow:visible!important;background:#fff!important}
   html{padding:0!important}
   .app{display:block!important}
@@ -1241,8 +1243,9 @@ function queryRun(c,root){
   })})(sc.root,[]));
   return hits;
 }
+let VARS={};
 function evaluate(root){
-  EV=new Map();const scope={};
+  EV=new Map();const scope={};VARS=scope;
   (function group(n,depth){
     if(depth>80)return;
     /* block: every amount above (for total and avg); seg: amounts since the last sum (for sum) */
@@ -1464,10 +1467,45 @@ function refreshResults(){
     });
     line.after(box);
   });
+  markVars();
   alarmChips();
   /* when zoomed in, the bullet shown as the heading keeps its value and count */
   const zd=cur(),zn=zd.zoom!=='root'?node(zd.zoom):null,ze=zn?EV.get(zd.zoom):null;
   $('zoomRes').hidden=!fillChips({b:$('zRes'),c:$('zCnt')},ze,zn?calcMode(zn.text):null);
+}
+/* variables stand out in calculation lines: where one is named (salary = …, spent =:) and wherever it is used again.
+   Hover a used one to see its value */
+function markVars(only){
+  const names=Object.keys(VARS).filter(k=>/^[A-Za-z_]\w*$/.test(k));
+  const els=only?[only]:list.querySelectorAll('.txt');
+  const re=names.length?new RegExp('(^|[^\\w#@.])('+names.sort((a,b)=>b.length-a.length).join('|')+')(?![\\w(])','g'):null;
+  els.forEach(t=>{
+    if(t.dataset.raw||t.classList.contains('tabrow'))return;
+    t.querySelectorAll('.vref,.vdef').forEach(x=>x.replaceWith(document.createTextNode(x.textContent)));t.normalize();
+    if(!re)return;
+    const n=node(t.dataset.id);if(!n)return;
+    const e=EV.get(n.id),txt=n.text;
+    if(!/=/.test(txt)&&!(e&&e.v!=null))return;
+    if(isRow(txt)||isQuery(txt))return;
+    const def=(txt.match(/^\s*([A-Za-z_]\w*)\s*=/)||[])[1];
+    let first=true;
+    const walker=document.createTreeWalker(t,NodeFilter.SHOW_TEXT,{acceptNode:x=>x.parentElement.closest('.tag,code,a,.ilink,.gal')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+    const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+    nodes.forEach(tn=>{
+      const str=tn.nodeValue;re.lastIndex=0;if(!re.test(str))return;re.lastIndex=0;
+      const frag=document.createDocumentFragment();let last=0,m;
+      while((m=re.exec(str))){
+        const at=m.index+m[1].length,nm=m[2];
+        frag.append(str.slice(last,at));
+        const sp=document.createElement('span');
+        const isDef=first&&nm===def&&!str.slice(0,at).trim();
+        sp.className=isDef?'vdef':'vref';sp.textContent=nm;
+        const val=VARS[nm];if(val!=null)sp.title=nm+' = '+fmtVal(typeof val==='object'?val:{v:val});
+        frag.append(sp);last=at+nm.length;first=false;
+      }
+      frag.append(str.slice(last));tn.replaceWith(frag);first=false;
+    });
+  });
 }
 function renderOutline(opts){
   opts=opts||{};
@@ -1781,7 +1819,7 @@ list.addEventListener('focusout',e=>{
   const t=e.target;
   if(t.classList.contains('txt')){
     const n=node(t.dataset.id);
-    if(n&&t.isConnected){t.innerHTML=fmtText(n.text);delete t.dataset.raw;hydrateImgs(t);if(isRow(n.text)||t.closest('.trow'))applyTables()}
+    if(n&&t.isConnected){t.innerHTML=fmtText(n.text);delete t.dataset.raw;hydrateImgs(t);markVars(t);if(isRow(n.text)||t.closest('.trow'))applyTables()}
   }else if(t.classList.contains('note')){
     const n=node(t.dataset.id);
     if(n&&!n.note){n.note=null;t.remove();save()}
