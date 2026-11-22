@@ -525,7 +525,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     </dl>
     <h3>Walkabout</h3>
     <dl class="keys">
-      <dt>$Slots</dt><dd>a heading starting with $ and a word. Under it, each line is machine numbers and the fault: <code>10101 No sound</code>, <code>20201,3,5 Button faulty</code> (20201, 20203 and 20205), <code>30101-4 Lamp out</code> (30101 to 30104), <code>203 Lamp out</code> (the whole bank), <code>203*10 Lamp out</code> (10 machines, 20301 to 20310). Tables work the same: <code>BAC5 Service</code>, <code>BJ3,5 Shuffler faulty</code> (BJ3 and BJ5), <code>AR1-3 Chipper mixing</code>. The heading counts the machines, and ticked-off lines count as fixed. ⋯ → Copy $Slots (or whatever the list is called) gives one row per machine for Excel</dd>
+      <dt>$Slots</dt><dd>a heading starting with $ and a word. Under it, each line is machine numbers and the fault: <code>10101 No sound</code>, <code>20201,3,5 Button faulty</code> (20201, 20203 and 20205), <code>30101-4 Lamp out</code> (30101 to 30104), <code>203 Lamp out</code> (the whole bank), <code>203*10 Lamp out</code> (10 machines, 20301 to 20310). Tables work the same: <code>BAC5 Service</code>, <code>BJ3,5 Shuffler faulty</code> (BJ3 and BJ5), <code>AR1-3 Chipper mixing</code>. Or put the fault first and its machines in braces: <code>BV door open {10101,20503,40602,3,90701-4}</code>. The heading counts the machines, and ticked-off lines count as fixed. ⋯ → Copy $Slots (or whatever the list is called) gives one row per machine for Excel</dd>
     </dl>
     <h3>Alarms</h3>
     <dl class="keys">
@@ -1271,7 +1271,26 @@ const WALK_RE=/^\s*(\d{4,6})((?:\s*[,\-]\s*\d{1,6})*)(?:\s+(.*))?$/;
 const WALK_BANK=/^\s*(\d{3})(?:\s*[*x×]\s*(\d{1,2}))?(?=\s|$)(?:\s+(.*))?$/i;
 /* gaming tables: BAC5 Service, RPK3 Touchpad faulty, BJ3,5 Shuffler faulty (BJ3 and BJ5), AR1-3 (AR1 to AR3) */
 const WALK_TBL=/^\s*([A-Za-z]{1,4})(\d{1,3})((?:\s*[,\-]\s*\d{1,3})*)(?=\s|$)(?:\s+(.*))?$/;
+/* a fault with its machines in braces: BV door open {10101,20503,40602,3,90701-4}.
+   A short number belongs to the bank before it (40602,3 is 40602 and 40603); 90701-4 is 90701 to 90704; tables too (BJ3,5) */
+function walkBrace(list){
+  const out=[];let pre='',w=0;
+  list.split(/[,;\s]+/).filter(Boolean).forEach(tok=>{
+    const m=tok.match(/^([A-Za-z]{0,4})(\d+)(?:-(\d+))?$/);if(!m)return;
+    let a;
+    if(m[1]){pre=m[1].toUpperCase();w=0;a=+m[2];const b=m[3]?+m[3]:a;for(let i=a;i<=Math.max(a,Math.min(b,a+50));i++)out.push(pre+i);return}
+    if(m[2].length>=4){pre=m[2].slice(0,-2);w=m[2].length;a=m[2]}
+    else if(pre&&w){a=pre+m[2].padStart(2,'0')}
+    else if(pre){a=null;const x=+m[2],b=m[3]?+m[3]:x;for(let i=x;i<=Math.max(x,Math.min(b,x+50));i++)out.push(pre+i);return}
+    else return;
+    out.push(a);
+    if(m[3]){const end=w&&m[3].length<w?pre+m[3].padStart(2,'0'):m[3];for(let i=+a+1;i<=+end&&i-+a<=99;i++)out.push(String(i).padStart(w,'0'))}
+  });
+  return[...new Set(out)];
+}
 function walkParse(t){
+  const br=(t||'').match(/^\s*(.*?)\s*\{([^{}]*)\}\s*$/);
+  if(br&&!/^\s*\$/.test(t)){const ms=walkBrace(br[2]);if(ms.length)return{machines:ms,fault:br[1].trim(),table:ms.every(x=>/^[A-Z]/.test(x))}}
   const g=(t||'').match(WALK_TBL);
   if(g){
     const pre=g[1].toUpperCase(),out=[pre+g[2]];let last=+g[2];
