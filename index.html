@@ -304,7 +304,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 .mchs{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;margin-right:8px;vertical-align:1px}
 .mch{font:600 12.5px/1 var(--f-mono);color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:4px 6px;font-variant-numeric:tabular-nums}
 .mchs.col{display:inline-flex;flex-direction:column;align-items:flex-start;vertical-align:top;margin-top:1px}
-.mgrid{display:inline-grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;row-gap:4px;align-items:center;vertical-align:top}
+.mgrid{display:inline-grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;row-gap:4px;align-items:baseline;vertical-align:top}
 .mgrid .mch{justify-self:start}
 .mch.tbl{color:#1f7a3d;background:#dcf2e2}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mch.tbl{color:#7fd59a;background:#173523}}
@@ -1301,6 +1301,9 @@ function walkBrace(list){
 function walkParse(t){
   const br=(t||'').match(/^\s*(.*?)\s*\{([^{}]*)\}\s*$/);
   if(br&&!/^\s*\$/.test(t)){const ms=walkBrace(br[2]);if(ms.length)return{machines:ms,fault:br[1].trim(),table:ms.every(x=>/^[A-Z]/.test(x))}}
+  /* named tables with a hyphen: Stadium-BAC Shuffler faulty, Stadium-BJ2 Not reading cards */
+  const nm=(t||'').match(/^\s*([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*-[A-Z]{2,}[0-9]*)(?=\s|$)(?:\s+(.*))?$/);
+  if(nm)return{machines:[nm[1]],fault:(nm[2]||'').trim(),table:true};
   const g=(t||'').match(WALK_TBL);
   if(g){
     const pre=g[1].toUpperCase(),out=[pre+g[2]];let last=+g[2];
@@ -1603,7 +1606,7 @@ function markWalk(only){
     const p=walkParseN(n);if(!p||t.querySelector('.mchs'))return;
     const chips=p.bank&&!p.run?'<span class="mch">'+p.bank+'</span>'
       :p.machines.map(m=>'<span class="mch'+(p.table?' tbl':'')+'">'+m+'</span>').join('');
-    if(p.machines.length>1){
+    if(p.machines.length>=1){
       /* one row per machine; the fault repeats in a lighter colour */
       const rep=esc(plain(p.fault));
       t.innerHTML='<span class="mgrid" contenteditable="false">'+p.machines.map((m,i)=>'<span class="mch'+(p.table?' tbl':'')+'">'+m+'</span>'+(i||p.inh?'<span class="mrep">'+rep+(p.block?' · '+esc(plain(p.block)):'')+'</span>':'<span class="mf">'+fmtText(p.fault)+(p.block?'<span class="mrep"> · '+esc(plain(p.block))+'</span>':'')+'</span>')).join('')+'</span>';
