@@ -2694,25 +2694,33 @@ function fillWalk(){
   if(names.length>1)add('Copy all walkabout lists',hs);
 }
 function copyWalk(hs){
-  /* laid out like a report: the list's name, each sub-heading ($BV's, CR's …) on its own row, then Machine | Fault under it */
-  const groupOf=(n,h)=>{for(let a=par(n.id);a&&a!==h;a=par(a.id)){if(!W_OPEN.test(a.text))return walkName(a)}return''};
-  const rows=[];let count=0;
-  const names=[...new Set(hs.map(walkName))];
-  names.forEach(nm=>{
-    rows.push({k:'title',c:[nm,'']});let last=null;
-    hs.filter(h=>walkName(h)===nm).forEach(h=>walkLines(h).forEach(x=>{
-      const g=groupOf(x.n,h);
-      if(g&&g!==last)rows.push({k:'group',c:[g,'']});
-      else if(!g&&last)rows.push({k:'gap',c:['','']});
-      last=g;
-      x.p.machines.forEach(m=>{rows.push({k:'row',c:[m,walkFault(x.p)]});count++});
-    }));
+  /* laid out like a report: the heading the list sits in, then the list and its sub-headings marked > and >>,
+     each with a Machine | Fault header over its machines */
+  const rows=[];let count=0,allTbl=true,need=false,ctx=null;
+  const head=(name,d)=>{rows.push({k:'title',c:[(d?'>'.repeat(d)+' ':'')+name,'']});need=true};
+  function lines(n,d){
+    n.children.forEach(c=>{
+      const p=walkParseN(c);
+      if(p){
+        if(need){rows.push({k:'head',c:[p.table?'Table':'Machine','Fault']});need=false}
+        p.machines.forEach(m=>{rows.push({k:'row',c:[m,walkFault(p)]});count++});
+        if(!p.table)allTbl=false;
+        if(c.children.length)lines(c,d);
+      }else if(W_OPEN.test(c.text)||W_CLOSE.test(c.text)){if(c.children.length)lines(c,d)}
+      else if(c.children.length&&walkLines(c).length){head(walkName(c),d+1);lines(c,d+1)}
+    });
+  }
+  hs.forEach(h=>{
+    const pa=par(h.id),top=pa&&pa.id!=='root'&&pa.text.trim()?pa:null;
+    if(top&&ctx!==top.id){head(walkName(top),0);ctx=top.id}
+    const d=top?1:0;head(walkName(h),d);lines(h,d);
   });
   if(!count){toast('No machines to copy');return}
   const text=rows.map(r=>r.c.join('\t')).join('\n');
   const cell=(v,st)=>'<td'+(st?' style="'+st+'"':'')+'>'+esc(String(v))+'</td>';
-  const html='<table>'+rows.map(r=>'<tr>'+(r.k==='row'||r.k==='gap'?cell(r.c[0],/^\d+$/.test(r.c[0])?'mso-number-format:0':'')+cell(r.c[1]):cell(r.c[0],'font-weight:bold')+cell(''))+'</tr>').join('')+'</table>';
-  const allTbl=hs.every(h=>walkLines(h).every(x=>x.p.table));
+  const html='<table>'+rows.map(r=>'<tr>'+(r.k==='row'?cell(r.c[0],/^\d+$/.test(r.c[0])?'mso-number-format:0':'')+cell(r.c[1])
+    :r.k==='head'?cell(r.c[0],'font-weight:bold')+cell(r.c[1],'font-weight:bold')
+    :cell(r.c[0],'font-weight:bold')+cell(''))+'</tr>').join('')+'</table>';
   copyRich(text,html,'Copied '+count+(allTbl?(count===1?' table':' tables'):(count===1?' machine':' machines'))+'. Paste into Excel');
 }
 /* ---------- Copy for Excel: item, budget, actual, difference (and % when used) ---------- */
