@@ -525,7 +525,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     </dl>
     <h3>Walkabout</h3>
     <dl class="keys">
-      <dt>$Slots</dt><dd>a heading starting with $ and a word. Under it, each line is machine numbers and the fault: <code>10101 No sound</code>, <code>20201,3,5 Button faulty</code> (20201, 20203 and 20205), <code>30101-4 Lamp out</code> (30101 to 30104), <code>203 Lamp out</code> (the whole bank), <code>203*10 Lamp out</code> (10 machines, 20301 to 20310). Tables work the same: <code>BAC5 Service</code>, <code>BJ3,5 Shuffler faulty</code> (BJ3 and BJ5), <code>AR1-3 Chipper mixing</code>. Or put the fault first and its machines in braces: <code>BV door open {10101,20503,40602,3,90701-4}</code>. The heading counts the machines, and ticked-off lines count as fixed. ⋯ → Copy $Slots (or whatever the list is called) gives one row per machine for Excel</dd>
+      <dt>$Slots</dt><dd>a heading starting with $ and a word. Under it, each line is machine numbers and the fault: <code>10101 No sound</code>, <code>20201,3,5 Button faulty</code> (20201, 20203 and 20205), <code>30101-4 Lamp out</code> (30101 to 30104), <code>203 Lamp out</code> (the whole bank), <code>203*10 Lamp out</code> (10 machines, 20301 to 20310). Tables work the same: <code>BAC5 Service</code>, <code>BJ3,5 Shuffler faulty</code> (BJ3 and BJ5), <code>AR1-3 Chipper mixing</code>. Or put the fault first and its machines in braces: <code>BV door open {10101,20503,40602,3,90701-4}</code>, or over several lines: <code>CR faulty {</code>, then one line per machine, then a line with just <code>}</code>. The heading counts the machines, and ticked-off lines count as fixed. ⋯ → Copy $Slots (or whatever the list is called) gives one row per machine for Excel</dd>
     </dl>
     <h3>Alarms</h3>
     <dl class="keys">
@@ -1329,7 +1329,21 @@ function walkArea(m){
   return'';
 }
 let WALKIDS=new Set();
-function walkLines(h){const out=[];(function w(n){n.children.forEach(c=>{const p=walkParse(c.text);if(p)out.push({n:c,p});w(c)})})(h);return out}
+/* a fault opened with { on its own line covers the lines after it until a line with just }:
+     CR faulty {
+     32302
+     32103,91301
+     }
+   (the machines can also sit indented under the "CR faulty {" line) */
+const W_OPEN=/^\s*(.*?)\s*\{\s*$/,W_CLOSE=/^\s*\}\s*$/;
+function walkInherit(n){
+  const pa=par(n.id);if(!pa)return'';
+  const sibs=pa.children;
+  for(let i=sibs.indexOf(n)-1;i>=0;i--){const t=sibs[i].text;if(W_CLOSE.test(t))break;const m=t.match(W_OPEN);if(m)return m[1]}
+  const m=(pa.text||'').match(W_OPEN);return m?m[1]:'';
+}
+function walkParseN(n){const p=walkParse(n.text);if(p&&!p.fault){const f=walkInherit(n);if(f){p.fault=f;p.inh=true}}return p}
+function walkLines(h){const out=[];(function w(n){n.children.forEach(c=>{const p=walkParseN(c);if(p)out.push({n:c,p});w(c)})})(h);return out}
 let VARS={};
 function evaluate(root){
   WALKIDS=new Set();(function w(n,on){n.children.forEach(c=>{if(on)WALKIDS.add(c.id);w(c,on||isWalk(c.text))})})(root,false);
@@ -1574,16 +1588,16 @@ function markWalk(only){
   els.forEach(t=>{
     if(t.dataset.raw||t.classList.contains('tabrow'))return;
     const n=node(t.dataset.id);if(!n||!WALKIDS.has(n.id))return;
-    const p=walkParse(n.text);if(!p||t.querySelector('.mchs'))return;
+    const p=walkParseN(n);if(!p||t.querySelector('.mchs'))return;
     const chips=p.bank&&!p.run?'<span class="mch">'+p.bank+'</span>'
       :p.machines.map(m=>'<span class="mch'+(p.table?' tbl':'')+'">'+m+'</span>').join('');
     if(p.machines.length>1){
       /* one row per machine; the fault repeats in a lighter colour */
       const rep=esc(plain(p.fault));
-      t.innerHTML='<span class="mgrid" contenteditable="false">'+p.machines.map((m,i)=>'<span class="mch'+(p.table?' tbl':'')+'">'+m+'</span>'+(i?'<span class="mrep">'+rep+'</span>':'<span class="mf">'+fmtText(p.fault)+'</span>')).join('')+'</span>';
+      t.innerHTML='<span class="mgrid" contenteditable="false">'+p.machines.map((m,i)=>'<span class="mch'+(p.table?' tbl':'')+'">'+m+'</span>'+(i||p.inh?'<span class="mrep">'+rep+'</span>':'<span class="mf">'+fmtText(p.fault)+'</span>')).join('')+'</span>';
       return;
     }
-    t.innerHTML='<span class="mchs" contenteditable="false">'+chips+'</span>'+fmtText(p.fault);
+    t.innerHTML='<span class="mchs" contenteditable="false">'+chips+'</span>'+(p.inh?'<span class="mrep">'+esc(plain(p.fault))+'</span>':fmtText(p.fault));
   });
 }
 function markVars(only){
