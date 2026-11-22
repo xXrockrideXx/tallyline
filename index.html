@@ -2630,10 +2630,10 @@ function walkHeads(){
 $('walkBtn').addEventListener('click',()=>{
   const hs=walkHeads(),many=hs.length>1,rows=[];
   hs.forEach(h=>walkLines(h).forEach(x=>x.p.machines.forEach(m=>{
-    const r=[m.slice(0,3),m.length>3?m:'',plain(x.p.fault).replace(/\t/g,' ')];
+    const r=[m,plain(x.p.fault).replace(/\t/g,' ')];
     if(many)r.unshift(plain(h.text).replace(/^\s*\$/,''));rows.push(r)})));
   if(!rows.length){toast('No machines to copy');return}
-  const head=(many?['List']:[]).concat(['Bank','Machine','Fault']);
+  const head=(many?['List']:[]).concat(['Machine','Fault']);
   copy([head].concat(rows).map(r=>r.join('\t')).join('\n'),'Copied '+rows.length+(rows.length===1?' machine':' machines')+'. Paste into Excel');
 });
 /* ---------- Copy for Excel: item, budget, actual, difference (and % when used) ---------- */
