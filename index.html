@@ -1539,7 +1539,7 @@ function markWalk(only){
     if(t.dataset.raw||t.classList.contains('tabrow'))return;
     const n=node(t.dataset.id);if(!n||!WALKIDS.has(n.id))return;
     const p=walkParse(n.text);if(!p||t.querySelector('.mchs'))return;
-    const chips=p.run>3?'<span class="mch" title="'+p.machines.join(', ')+'">'+p.machines[0]+'–'+p.machines[p.machines.length-1]+'</span><span class="mbank">'+p.run+' machines</span>'
+    const chips=p.run>3?'<span class="mch" title="'+p.machines.join(', ')+'">'+p.machines[0]+'–'+p.machines[p.machines.length-1]+'</span>'
       :p.bank&&!p.run?'<span class="mch">Bank '+p.bank+'</span>'
       :p.machines.map(m=>'<span class="mch">'+m+'</span>').join('');
     t.innerHTML='<span class="mchs" contenteditable="false">'+chips+'</span>'+fmtText(p.fault);
@@ -2620,10 +2620,10 @@ function walkHeads(){
 $('walkBtn').addEventListener('click',()=>{
   const hs=walkHeads(),many=hs.length>1,rows=[];
   hs.forEach(h=>walkLines(h).forEach(x=>x.p.machines.forEach(m=>{
-    const r=[m.length>3?m:'',m.slice(0,3),plain(x.p.fault).replace(/\t/g,' ')];
+    const r=[m.slice(0,3),m.length>3?m:'',plain(x.p.fault).replace(/\t/g,' ')];
     if(many)r.unshift(plain(h.text).replace(/^\s*\$/,''));rows.push(r)})));
   if(!rows.length){toast('No machines to copy');return}
-  const head=(many?['List']:[]).concat(['Machine','Bank','Fault']);
+  const head=(many?['List']:[]).concat(['Bank','Machine','Fault']);
   copy([head].concat(rows).map(r=>r.join('\t')).join('\n'),'Copied '+rows.length+(rows.length===1?' machine':' machines')+'. Paste into Excel');
 });
 /* ---------- Copy for Excel: item, budget, actual, difference (and % when used) ---------- */
