@@ -2685,11 +2685,14 @@ function fillWalk(){
 }
 function copyWalk(hs){
   const many=new Set(hs.map(walkName)).size>1,rows=[];
-  hs.forEach(h=>walkLines(h).forEach(x=>x.p.machines.forEach(m=>{
-    const r=[m,walkFault(x.p)];
-    if(many)r.unshift(walkName(h));rows.push(r)})));
+  /* the heading a line sits under inside the list ($BV's, CR's …), skipping fault blocks */
+  const groupOf=(n,h)=>{for(let a=par(n.id);a&&a!==h;a=par(a.id)){if(!W_OPEN.test(a.text))return walkName(a)}return''};
+  hs.forEach(h=>walkLines(h).forEach(x=>{const g=groupOf(x.n,h);x.p.machines.forEach(m=>{
+    rows.push({l:walkName(h),g,r:[m,walkFault(x.p)]})})}));
   if(!rows.length){toast('No machines to copy');return}
-  const allTbl=hs.every(h=>walkLines(h).every(x=>x.p.table)),head=(many?['List']:[]).concat([allTbl?'Table':'Machine','Fault']);
+  const grp=rows.some(x=>x.g);
+  const allTbl=hs.every(h=>walkLines(h).every(x=>x.p.table)),head=(many?['List']:[]).concat(grp?['Group']:[],[allTbl?'Table':'Machine','Fault']);
+  rows.forEach((x,i)=>{rows[i]=(many?[x.l]:[]).concat(grp?[x.g]:[],x.r)});
   copy([head].concat(rows).map(r=>r.join('\t')).join('\n'),'Copied '+rows.length+(allTbl?(rows.length===1?' table':' tables'):(rows.length===1?' machine':' machines'))+'. Paste into Excel');
 }
 /* ---------- Copy for Excel: item, budget, actual, difference (and % when used) ---------- */
