@@ -2694,7 +2694,7 @@ function fillWalk(){
   if(names.length>1)add('Copy all walkabout lists',hs);
 }
 function copyWalk(hs){
-  /* laid out like a report: the heading the list sits in, then the list and its sub-headings marked > and >>,
+  /* laid out like a report: the list's name, then its sub-headings marked > (and >> further down),
      each with a Machine | Fault header over its machines */
   const rows=[];let count=0,allTbl=true,need=false,ctx=null;
   const head=(name,d)=>{rows.push({k:'title',c:[(d?'>'.repeat(d)+' ':'')+name,'']});need=true};
@@ -2710,11 +2710,7 @@ function copyWalk(hs){
       else if(c.children.length&&walkLines(c).length){head(walkName(c),d+1);lines(c,d+1)}
     });
   }
-  hs.forEach(h=>{
-    const pa=par(h.id),top=pa&&pa.id!=='root'&&pa.text.trim()?pa:null;
-    if(top&&ctx!==top.id){head(walkName(top),0);ctx=top.id}
-    const d=top?1:0;head(walkName(h),d);lines(h,d);
-  });
+  hs.forEach(h=>{head(walkName(h),0);lines(h,0)});
   if(!count){toast('No machines to copy');return}
   const text=rows.map(r=>r.c.join('\t')).join('\n');
   const cell=(v,st)=>'<td'+(st?' style="'+st+'"':'')+'>'+esc(String(v))+'</td>';
