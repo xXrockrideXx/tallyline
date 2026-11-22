@@ -306,6 +306,9 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 .mchs.col{display:inline-flex;flex-direction:column;align-items:flex-start;vertical-align:top;margin-top:1px}
 .mgrid{display:inline-grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;row-gap:4px;align-items:center;vertical-align:top}
 .mgrid .mch{justify-self:start}
+.mch.tbl{color:#1f7a3d;background:#dcf2e2}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mch.tbl{color:#7fd59a;background:#173523}}
+:root[data-theme="dark"] .mch.tbl{color:#7fd59a;background:#173523}
 .mrep{color:var(--faint)}
 .node.done>.row .mrep{color:var(--faint)}
 .mbank{font:600 11px/1 var(--f-mono);color:var(--muted);padding:3px 2px}
@@ -1554,11 +1557,11 @@ function markWalk(only){
     const n=node(t.dataset.id);if(!n||!WALKIDS.has(n.id))return;
     const p=walkParse(n.text);if(!p||t.querySelector('.mchs'))return;
     const chips=p.bank&&!p.run?'<span class="mch">Bank '+p.bank+'</span>'
-      :p.machines.map(m=>'<span class="mch">'+m+'</span>').join('');
+      :p.machines.map(m=>'<span class="mch'+(p.table?' tbl':'')+'">'+m+'</span>').join('');
     if(p.machines.length>1){
       /* one row per machine; the fault repeats in a lighter colour */
       const rep=esc(plain(p.fault));
-      t.innerHTML='<span class="mgrid" contenteditable="false">'+p.machines.map((m,i)=>'<span class="mch">'+m+'</span>'+(i?'<span class="mrep">'+rep+'</span>':'<span class="mf">'+fmtText(p.fault)+'</span>')).join('')+'</span>';
+      t.innerHTML='<span class="mgrid" contenteditable="false">'+p.machines.map((m,i)=>'<span class="mch'+(p.table?' tbl':'')+'">'+m+'</span>'+(i?'<span class="mrep">'+rep+'</span>':'<span class="mf">'+fmtText(p.fault)+'</span>')).join('')+'</span>';
       return;
     }
     t.innerHTML='<span class="mchs" contenteditable="false">'+chips+'</span>'+fmtText(p.fault);
