@@ -2684,14 +2684,20 @@ function walkHeads(){
   (function w(n){n.children.forEach(c=>{if(isWalk(c.text))out.push(c);else w(c)})})(z);
   return out;
 }
+/* every list in view, including lists inside lists ($BV's inside $Servicing) */
+function walkHeadsAll(){
+  const out=[];
+  walkHeads().forEach(h=>{out.push(h);(function w(n){n.children.forEach(c=>{if(isWalk(c.text))out.push(c);w(c)})})(h)});
+  return out;
+}
 const walkName=h=>plain(h.text).replace(/^\s*\$/,'').trim();
 /* one menu entry per list name ($Slots, $Tables …), plus one for all of them */
 function fillWalk(){
   const box=$('walkBtns');box.textContent='';
-  const hs=walkHeads(),names=[...new Set(hs.map(walkName))];
+  const tops=walkHeads(),hs=walkHeadsAll(),names=[...new Set(hs.map(walkName))];
   const add=(label,list)=>{const b=document.createElement('button');b.className='mi';b.type='button';b.textContent=label;b.addEventListener('click',()=>copyWalk(list));box.append(b)};
   names.forEach(nm=>add('Copy $'+nm,hs.filter(h=>walkName(h)===nm)));
-  if(names.length>1)add('Copy all walkabout lists',hs);
+  if(new Set(tops.map(walkName)).size>1)add('Copy all walkabout lists',tops);
 }
 function copyWalk(hs){
   /* laid out like a report: the list's name, then its sub-headings marked > (and >> further down),
