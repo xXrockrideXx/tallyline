@@ -1575,7 +1575,7 @@ function markWalk(only){
     if(t.dataset.raw||t.classList.contains('tabrow'))return;
     const n=node(t.dataset.id);if(!n||!WALKIDS.has(n.id))return;
     const p=walkParse(n.text);if(!p||t.querySelector('.mchs'))return;
-    const chips=p.bank&&!p.run?'<span class="mch">Bank '+p.bank+'</span>'
+    const chips=p.bank&&!p.run?'<span class="mch">'+p.bank+'</span>'
       :p.machines.map(m=>'<span class="mch'+(p.table?' tbl':'')+'">'+m+'</span>').join('');
     if(p.machines.length>1){
       /* one row per machine; the fault repeats in a lighter colour */
