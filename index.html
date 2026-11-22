@@ -1342,7 +1342,9 @@ function walkInherit(n){
   for(let i=sibs.indexOf(n)-1;i>=0;i--){const t=sibs[i].text;if(W_CLOSE.test(t))break;const m=t.match(W_OPEN);if(m)return m[1]}
   const m=(pa.text||'').match(W_OPEN);return m?m[1]:'';
 }
-function walkParseN(n){const p=walkParse(n.text);if(p&&!p.fault){const f=walkInherit(n);if(f){p.fault=f;p.inh=true}}return p}
+function walkParseN(n){const p=walkParse(n.text);if(p){const f=walkInherit(n);if(f){if(!p.fault){p.fault=f;p.inh=true}else p.block=f}}return p}
+/* the fault as copied: block fault first, then the line's own (Progressive enabled (No), NSU) */
+const walkFault=p=>plain(p.block?p.block+', '+p.fault:p.fault).replace(/\t/g,' ');
 function walkLines(h){const out=[];(function w(n){n.children.forEach(c=>{const p=walkParseN(c);if(p)out.push({n:c,p});w(c)})})(h);return out}
 let VARS={};
 function evaluate(root){
@@ -1594,10 +1596,10 @@ function markWalk(only){
     if(p.machines.length>1){
       /* one row per machine; the fault repeats in a lighter colour */
       const rep=esc(plain(p.fault));
-      t.innerHTML='<span class="mgrid" contenteditable="false">'+p.machines.map((m,i)=>'<span class="mch'+(p.table?' tbl':'')+'">'+m+'</span>'+(i||p.inh?'<span class="mrep">'+rep+'</span>':'<span class="mf">'+fmtText(p.fault)+'</span>')).join('')+'</span>';
+      t.innerHTML='<span class="mgrid" contenteditable="false">'+p.machines.map((m,i)=>'<span class="mch'+(p.table?' tbl':'')+'">'+m+'</span>'+(i||p.inh?'<span class="mrep">'+rep+(p.block?' · '+esc(plain(p.block)):'')+'</span>':'<span class="mf">'+fmtText(p.fault)+(p.block?'<span class="mrep"> · '+esc(plain(p.block))+'</span>':'')+'</span>')).join('')+'</span>';
       return;
     }
-    t.innerHTML='<span class="mchs" contenteditable="false">'+chips+'</span>'+(p.inh?'<span class="mrep">'+esc(plain(p.fault))+'</span>':fmtText(p.fault));
+    t.innerHTML='<span class="mchs" contenteditable="false">'+chips+'</span>'+(p.inh?'<span class="mrep">'+esc(plain(p.fault))+'</span>':fmtText(p.fault)+(p.block?'<span class="mrep"> · '+esc(plain(p.block))+'</span>':''));
   });
 }
 function markVars(only){
@@ -2684,7 +2686,7 @@ function fillWalk(){
 function copyWalk(hs){
   const many=new Set(hs.map(walkName)).size>1,rows=[];
   hs.forEach(h=>walkLines(h).forEach(x=>x.p.machines.forEach(m=>{
-    const r=[m,plain(x.p.fault).replace(/\t/g,' ')];
+    const r=[m,walkFault(x.p)];
     if(many)r.unshift(walkName(h));rows.push(r)})));
   if(!rows.length){toast('No machines to copy');return}
   const allTbl=hs.every(h=>walkLines(h).every(x=>x.p.table)),head=(many?['List']:[]).concat([allTbl?'Table':'Machine','Fault']);
