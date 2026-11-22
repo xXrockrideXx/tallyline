@@ -162,7 +162,8 @@ button{font:inherit;color:inherit}
 .qitem small{flex:none;color:var(--faint);font-size:11.5px}
 .qitem.done span{color:var(--faint);text-decoration:line-through}
 .qnone{font-size:13px;color:var(--faint);padding:3px 6px}
-.zoomres{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px;margin:-12px 0 20px}
+.zoomres{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:baseline;gap:8px;margin:0;flex:none;max-width:55%}
+.titlerow:has(#zoomRes:not([hidden])){align-items:baseline}
 .zoomres .res{font-size:15px;line-height:26px;padding:0 9px}
 .zoomres .cnt{font-size:13px;line-height:24px}
 .note{font-size:13.5px;line-height:20px;color:var(--muted);white-space:pre-wrap;word-break:break-word;outline:none;padding-bottom:5px}
@@ -423,8 +424,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="crumbs" id="crumbs"></div>
       <div class="titlerow">
         <h1 class="doctitle" id="title" spellcheck="true"></h1>
+        <div class="zoomres" id="zoomRes" hidden><button class="res" id="zRes" type="button" title="Copy result"></button><span class="cnt" id="zCnt"></span></div>
       </div>
-      <div class="zoomres" id="zoomRes" hidden><button class="res" id="zRes" type="button" title="Copy result"></button><span class="cnt" id="zCnt"></span></div>
       <div class="list" id="list"></div>
       <div class="hint" id="emptyHint" hidden><span>Nothing here yet.</span><button class="btn primary" id="addFirst" type="button">Add an item</button></div>
       <div class="hint" id="noHits" hidden>No items match your search.</div>
