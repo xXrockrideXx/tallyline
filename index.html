@@ -2698,6 +2698,13 @@ function fillWalk(){
   const add=(label,list)=>{const b=document.createElement('button');b.className='mi';b.type='button';b.textContent=label;b.addEventListener('click',()=>copyWalk(list));box.append(b)};
   names.forEach(nm=>add('Copy $'+nm,hs.filter(h=>walkName(h)===nm)));
   if(new Set(tops.map(walkName)).size>1)add('Copy all walkabout lists',tops);
+  if(hs.length){
+    /* on: list name, sub-headings and Machine | Fault rows; off: just the machines and faults */
+    const t=document.createElement('button');t.className='mi';t.type='button';t.textContent='Copy with headings';
+    t.setAttribute('aria-pressed',String(store.settings.walkPlain!==true));
+    t.addEventListener('click',()=>{store.settings.walkPlain=!store.settings.walkPlain;save();t.setAttribute('aria-pressed',String(!store.settings.walkPlain));toast(store.settings.walkPlain?'Walkabout copies without headings':'Walkabout copies with headings')});
+    box.append(t);
+  }
 }
 function copyWalk(hs){
   /* laid out like a report: the list's name, then its sub-headings marked > (and >> further down),
@@ -2718,6 +2725,7 @@ function copyWalk(hs){
   }
   hs.forEach(h=>{head(walkName(h),0);lines(h,0)});
   if(!count){toast('No machines to copy');return}
+  if(store.settings.walkPlain){const keep=rows.filter(r=>r.k==='row');rows.length=0;rows.push(...keep)}
   const text=rows.map(r=>r.c.join('\t')).join('\n');
   const cell=(v,st)=>'<td'+(st?' style="'+st+'"':'')+'>'+esc(String(v))+'</td>';
   const html='<table>'+rows.map(r=>'<tr>'+(r.k==='row'?cell(r.c[0],/^\d+$/.test(r.c[0])?'mso-number-format:0':'')+cell(r.c[1])
