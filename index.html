@@ -522,7 +522,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     </dl>
     <h3>Walkabout</h3>
     <dl class="keys">
-      <dt>$Slots</dt><dd>a heading starting with $ and a word. Under it, each line is machine numbers and the fault: <code>10101 No sound</code>, <code>20201,3,5 Button faulty</code> (20201, 20203 and 20205), <code>30101-4 Lamp out</code> (30101 to 30104), <code>203 Lamp out</code> (the whole bank), <code>203*10 Lamp out</code> (10 machines, 20301 to 20310). The heading counts the machines, and ticked-off lines count as fixed. ⋯ → Copy walkabout gives one row per machine for Excel</dd>
+      <dt>$Slots</dt><dd>a heading starting with $ and a word. Under it, each line is machine numbers and the fault: <code>10101 No sound</code>, <code>20201,3,5 Button faulty</code> (20201, 20203 and 20205), <code>30101-4 Lamp out</code> (30101 to 30104), <code>203 Lamp out</code> (the whole bank), <code>203*10 Lamp out</code> (10 machines, 20301 to 20310). Tables work the same: <code>BAC5 Service</code>, <code>BJ3,5 Shuffler faulty</code> (BJ3 and BJ5), <code>AR1-3 Chipper mixing</code>. The heading counts the machines, and ticked-off lines count as fixed. ⋯ → Copy walkabout gives one row per machine for Excel</dd>
     </dl>
     <h3>Alarms</h3>
     <dl class="keys">
@@ -1266,7 +1266,16 @@ const isWalk=t=>/^\s*\$[A-Za-z]/.test(t);
 const WALK_RE=/^\s*(\d{4,6})((?:\s*[,\-]\s*\d{1,6})*)(?:\s+(.*))?$/;
 /* a bank on its own: 203 Lamp out (the bank), 203*10 Lamp out (machines 20301 to 20310) */
 const WALK_BANK=/^\s*(\d{3})(?:\s*[*x×]\s*(\d{1,2}))?(?=\s|$)(?:\s+(.*))?$/i;
+/* gaming tables: BAC5 Service, RPK3 Touchpad faulty, BJ3,5 Shuffler faulty (BJ3 and BJ5), AR1-3 (AR1 to AR3) */
+const WALK_TBL=/^\s*([A-Za-z]{1,4})(\d{1,3})((?:\s*[,\-]\s*\d{1,3})*)(?=\s|$)(?:\s+(.*))?$/;
 function walkParse(t){
+  const g=(t||'').match(WALK_TBL);
+  if(g){
+    const pre=g[1].toUpperCase(),out=[pre+g[2]];let last=+g[2];
+    (g[3].match(/[,\-]\s*\d+/g)||[]).forEach(p=>{const v=+p.replace(/^[,\-]\s*/,'');
+      if(p[0]==='-'&&v>last&&v-last<=50)for(let i=last+1;i<=v;i++)out.push(pre+i);else out.push(pre+v);last=v});
+    return{machines:[...new Set(out)],fault:(g[4]||'').trim(),table:true};
+  }
   const b=(t||'').match(WALK_BANK);
   if(b){
     const fault=(b[3]||'').trim(),k=b[2]?+b[2]:0;
@@ -2633,8 +2642,8 @@ $('walkBtn').addEventListener('click',()=>{
     const r=[m,plain(x.p.fault).replace(/\t/g,' ')];
     if(many)r.unshift(plain(h.text).replace(/^\s*\$/,''));rows.push(r)})));
   if(!rows.length){toast('No machines to copy');return}
-  const head=(many?['List']:[]).concat(['Machine','Fault']);
-  copy([head].concat(rows).map(r=>r.join('\t')).join('\n'),'Copied '+rows.length+(rows.length===1?' machine':' machines')+'. Paste into Excel');
+  const allTbl=hs.every(h=>walkLines(h).every(x=>x.p.table)),head=(many?['List']:[]).concat([allTbl?'Table':'Machine','Fault']);
+  copy([head].concat(rows).map(r=>r.join('\t')).join('\n'),'Copied '+rows.length+(allTbl?(rows.length===1?' table':' tables'):(rows.length===1?' machine':' machines'))+'. Paste into Excel');
 });
 /* ---------- Copy for Excel: item, budget, actual, difference (and % when used) ---------- */
 function excelLabel(n,hasValue){
