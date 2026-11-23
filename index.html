@@ -236,6 +236,8 @@ body.dragmode,body.dragmode *{cursor:grabbing!important;-webkit-user-select:none
 #imgModal .mrow{flex:none}
 #imgModal .vwrap{position:relative}
 #drawCv{position:absolute;touch-action:none;cursor:crosshair}
+#drawCv.erasing{cursor:cell}
+#drawErase[aria-pressed="true"]{background:var(--accent);color:var(--surface);border-color:var(--accent)}
 .drawbar{flex:none;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
 .dcols{display:flex;gap:8px}
 .dcols button{width:32px;height:32px;border-radius:50%;border:2px solid rgba(255,255,255,.5);background:var(--c);cursor:pointer;padding:0}
@@ -599,7 +601,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <div class="vwrap"><img id="imgBig" alt="Image"><span class="vcap" id="imgCap" hidden></span><canvas id="drawCv" hidden></canvas></div>
     <div class="drawbar" id="drawBar" hidden>
       <div class="dcols" role="group" aria-label="Pen colour"><button type="button" data-c="#ff2d2d" aria-pressed="true" style="--c:#ff2d2d" aria-label="Red"></button><button type="button" data-c="#ffd400" style="--c:#ffd400" aria-label="Yellow"></button><button type="button" data-c="#1fbf4c" style="--c:#1fbf4c" aria-label="Green"></button><button type="button" data-c="#2f7bff" style="--c:#2f7bff" aria-label="Blue"></button><button type="button" data-c="#ffffff" style="--c:#ffffff" aria-label="White"></button><button type="button" data-c="#111111" style="--c:#111111" aria-label="Black"></button></div>
-      <div class="dtools"><button class="btn" id="drawThick" type="button">Thin</button><button class="btn" id="drawShape" type="button">Pen</button><button class="btn" id="drawUndo" type="button">Undo</button><button class="btn" id="drawCancel" type="button">Cancel</button><button class="btn primary" id="drawSave" type="button">Save</button></div>
+      <div class="dtools"><button class="btn" id="drawThick" type="button">Thin</button><button class="btn" id="drawShape" type="button">Pen</button><button class="btn" id="drawErase" type="button" aria-pressed="false">Eraser</button><button class="btn" id="drawUndo" type="button">Undo</button><button class="btn" id="drawCancel" type="button">Cancel</button><button class="btn primary" id="drawSave" type="button">Save</button></div>
     </div>
     <div class="capfield"><input id="capInput" type="text" maxlength="140" placeholder="Add a caption" aria-label="Caption" autocomplete="off"><button class="btn" id="capToggle" type="button" aria-pressed="true">Captions on</button></div>
     <div class="mrow" id="imgNav" style="justify-content:center;margin:0"><button class="btn" id="imgPrev" type="button" aria-label="Previous image">‹ Previous</button><span class="imgcount" id="imgCount"></span><button class="btn" id="imgNext" type="button" aria-label="Next image">Next ›</button></div>
@@ -2466,10 +2468,13 @@ $('imgModal').addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDe
   big.addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});
   big.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>40)stepImage(dx<0?1:-1)});
 })();
-/* ---------- Draw on a photo: pen, arrow or circle in a few colours. Saving makes a new copy with the drawing; the original stays as it was ---------- */
+/* ---------- Draw on a photo: pen, arrow or circle in a few colours. The drawing is a layer over the untouched photo:
+   saving shows a copy with the drawing, and the strokes stay editable (eraser, undo) the next time ---------- */
 (()=>{
   const cv=$('drawCv'),big=$('imgBig'),modal=$('imgModal'),ctx=cv.getContext('2d');
-  let strokes=[],cur=null,col='#ff2d2d',thick=false,shape='pen',box=null;
+  let strokes=[],cur=null,col='#ff2d2d',thick=false,shape='pen',box=null,erasing=false,hist=[],orig=null,shownKey=null;
+  const layerKey=k=>'ann-'+k+'.json';
+  async function loadLayer(k){let b=await IDB.get(layerKey(k));if(!b&&remoteImg){try{b=await remoteImg(layerKey(k));if(b)await IDB.set(layerKey(k),b)}catch(e){}}if(!b)return null;try{return JSON.parse(await b.text())}catch(e){return null}}
   const SH=['pen','arrow','circle'],SHN={pen:'Pen',arrow:'Arrow',circle:'Circle'};
   /* where the photo actually sits inside its box (it is fitted, not stretched) */
   function fit(){
@@ -2544,37 +2549,63 @@ $('imgModal').addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDe
   }
   let holdT=null,snapped=false,lastQ=null;
   const armHold=()=>{clearTimeout(holdT);holdT=setTimeout(()=>{if(cur&&cur.s==='pen'&&snap(cur)){snapped=true;paint();try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}},550)};
-  cv.addEventListener('pointerdown',e=>{e.preventDefault();cv.setPointerCapture(e.pointerId);const w=Math.max(box.nw,box.nh)*(thick?.012:.005);cur={c:col,w,s:shape,p:[pt(e)]};snapped=false;lastQ=pt(e);if(shape==='pen')armHold();paint()});
+  /* the eraser takes away whole strokes it touches */
+  function segDist(q,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy;let t=L?((q[0]-a[0])*dx+(q[1]-a[1])*dy)/L:0;t=Math.max(0,Math.min(1,t));return Math.hypot(q[0]-a[0]-t*dx,q[1]-a[1]-t*dy)}
+  function hits(st,q,r){
+    const P=st.p;
+    if(st.s==='circle'){const cx=(P[0][0]+P[1][0])/2,cy=(P[0][1]+P[1][1])/2,rx=Math.abs(P[1][0]-P[0][0])/2||1,ry=Math.abs(P[1][1]-P[0][1])/2||1;const d=Math.hypot((q[0]-cx)/rx,(q[1]-cy)/ry);return Math.abs(d-1)*Math.min(rx,ry)<r+st.w}
+    const pts=st.s==='poly'?P.concat([P[0]]):(st.s==='pen'?P:[P[0],P[P.length-1]]);
+    if(pts.length===1)return Math.hypot(q[0]-pts[0][0],q[1]-pts[0][1])<r+st.w;
+    for(let i=1;i<pts.length;i++)if(segDist(q,pts[i-1],pts[i])<r+st.w)return true;return false;
+  }
+  function eraseAt(q){const r=14/box.sc;for(let i=strokes.length-1;i>=0;i--)if(hits(strokes[i],q,r)){hist.push({t:'del',st:strokes[i],i});strokes.splice(i,1);paint()}}
+  cv.addEventListener('pointerdown',e=>{e.preventDefault();cv.setPointerCapture(e.pointerId);if(erasing){cur=null;cv.dataset.down='1';eraseAt(pt(e));return}const w=Math.max(box.nw,box.nh)*(thick?.012:.005);cur={c:col,w,s:shape,p:[pt(e)]};snapped=false;lastQ=pt(e);if(shape==='pen')armHold();paint()});
   cv.addEventListener('pointermove',e=>{
+    if(erasing){if(cv.dataset.down)eraseAt(pt(e));return}
     if(!cur||snapped)return;const q=pt(e);
     if(cur.s==='pen'){cur.p.push(q);if(Math.hypot(q[0]-lastQ[0],q[1]-lastQ[1])*box.sc>4){lastQ=q;armHold()}}
     else cur.p=[cur.p[0],q];
     paint();
   });
-  const end=()=>{clearTimeout(holdT);if(!cur)return;strokes.push(cur);cur=null;snapped=false;paint()};
+  const end=()=>{delete cv.dataset.down;clearTimeout(holdT);if(!cur)return;strokes.push(cur);hist.push({t:'add'});cur=null;snapped=false;paint()};
   cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
-  function start(){
+  async function start(){
     if(!viewing||!node(viewing.id)||!big.naturalWidth)return;
-    strokes=[];cur=null;modal.classList.add('drawing');$('drawBar').hidden=false;cv.hidden=false;requestAnimationFrame(place);
+    const k=viewing.keys[viewing.i];shownKey=k;strokes=[];hist=[];cur=null;orig=k;
+    /* drawn before: put the untouched photo back underneath and bring the strokes back */
+    const L=await loadLayer(k);
+    if(L&&L.o){const u=await imgURL(L.o);if(u){await new Promise(res=>{big.onload=big.onerror=res;big.src=u});big.onload=big.onerror=null;orig=L.o;strokes=(L.s||[]).slice()}}
+    setErase(false);modal.classList.add('drawing');$('drawBar').hidden=false;cv.hidden=false;requestAnimationFrame(place);
   }
-  function stop(){modal.classList.remove('drawing');$('drawBar').hidden=true;cv.hidden=true;strokes=[];cur=null}
+  function stop(){modal.classList.remove('drawing');$('drawBar').hidden=true;cv.hidden=true;strokes=[];hist=[];cur=null;setErase(false)}
+  function setErase(on){erasing=on;$('drawErase').setAttribute('aria-pressed',String(on));cv.classList.toggle('erasing',on)}
+  $('drawErase').addEventListener('click',()=>setErase(!erasing));
   window.addEventListener('resize',()=>{if(!cv.hidden)place()});
   $('imgDraw').addEventListener('click',start);
-  $('drawCancel').addEventListener('click',stop);
-  $('drawUndo').addEventListener('click',()=>{strokes.pop();paint()});
+  $('drawCancel').addEventListener('click',()=>{stop();showViewing()});
+  $('drawUndo').addEventListener('click',()=>{const h=hist.pop();if(!h)return;if(h.t==='add')strokes.pop();else strokes.splice(h.i,0,h.st);paint()});
   $('drawThick').addEventListener('click',e=>{thick=!thick;e.currentTarget.textContent=thick?'Thick':'Thin'});
-  $('drawShape').addEventListener('click',e=>{shape=SH[(SH.indexOf(shape)+1)%SH.length];e.currentTarget.textContent=SHN[shape]});
-  $('drawBar').querySelectorAll('.dcols button').forEach(b=>b.addEventListener('click',()=>{col=b.dataset.c;$('drawBar').querySelectorAll('.dcols button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))}));
+  $('drawShape').addEventListener('click',e=>{setErase(false);shape=SH[(SH.indexOf(shape)+1)%SH.length];e.currentTarget.textContent=SHN[shape]});
+  $('drawBar').querySelectorAll('.dcols button').forEach(b=>b.addEventListener('click',()=>{setErase(false);col=b.dataset.c;$('drawBar').querySelectorAll('.dcols button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))}));
   $('drawSave').addEventListener('click',async()=>{
     const n=viewing&&node(viewing.id);if(!n){stop();return}
-    if(!strokes.length){stop();return}
-    const k0=viewing.keys[viewing.i],out=document.createElement('canvas');out.width=box.nw;out.height=box.nh;
-    const c=out.getContext('2d');c.drawImage(big,0,0);strokes.forEach(st=>drawStroke(c,st,1));
-    const blob=await new Promise(res=>out.toBlob(res,'image/jpeg',.88));
-    if(!blob){toast("Couldn't save the drawing");return}
-    const key=uid()+'.jpg';await IDB.set(key,blob);
+    const k0=shownKey;
+    let key;
+    if(!strokes.length){
+      /* everything erased: back to the plain photo */
+      if(orig===k0){stop();showViewing();return}
+      key=orig;
+    }else{
+      const out=document.createElement('canvas');out.width=box.nw;out.height=box.nh;
+      const c=out.getContext('2d');c.drawImage(big,0,0);strokes.forEach(st=>drawStroke(c,st,1));
+      const blob=await new Promise(res=>out.toBlob(res,'image/jpeg',.88));
+      if(!blob){toast("Couldn't save the drawing");return}
+      key=uid()+'.jpg';await IDB.set(key,blob);
+      await IDB.set(layerKey(key),new Blob([JSON.stringify({o:orig,s:strokes})],{type:'application/json'}));
+    }
     op(()=>{n.text=n.text.replace(imgRe(k0),m=>m.replace('img:'+k0,'img:'+key))});
-    viewing.keys[viewing.i]=key;stop();showViewing();renderOutline({focus:null});toast('Drawing saved');
+    const msg=strokes.length?'Drawing saved':'Drawing removed';
+    viewing.keys[viewing.i]=key;stop();showViewing();renderOutline({focus:null});toast(msg);
   });
   /* leaving the viewer ends drawing */
   new MutationObserver(()=>{if(modal.hidden&&!cv.hidden)stop()}).observe(modal,{attributes:true,attributeFilter:['hidden']});
@@ -3964,6 +3995,12 @@ async function sync(){
     const refs=new Set();
     store.docs.forEach(d=>(function w(n){n.children.forEach(c=>{for(const m of (c.text||'').matchAll(/\(img:([\w.-]+)\)/g))refs.add(m[1]);w(c)})})(d.root));
     for(const k of refs){if(imgs.has(k))continue;const b=await IDB.get(k);if(b){await putImage(k,b);imgs.set(k,'')}}
+    /* drawing layers: the strokes and the untouched photo under them travel too, so they can be edited on any device */
+    for(const k of refs){
+      const lk='ann-'+k+'.json';if(imgs.has(lk))continue;const lb=await IDB.get(lk);if(!lb)continue;
+      try{const L=JSON.parse(await lb.text());if(L&&L.o&&!imgs.has(L.o)){const ob=await IDB.get(L.o);if(ob){await putImage(L.o,ob);imgs.set(L.o,'')}}}catch(e){}
+      await putImage(lk,lb);imgs.set(lk,'');
+    }
     if(copies.length){store.docs.push(...copies);gh.again=true;copies.forEach(c=>touched.add(c.id))}
     if(!store.docs.length){const d={id:uid(),type:'outline',title:'',zoom:'root',root:{id:'root',text:'',children:[mk('')]}};store.docs.push(d)}
     if(!store.docs.some(d=>d.id===store.activeId))store.activeId=store.docs[0].id;
