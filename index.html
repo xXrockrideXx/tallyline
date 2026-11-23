@@ -106,6 +106,9 @@ button{font:inherit;color:inherit}
 .mi{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;background:none;border-radius:6px;padding:9px 10px;font-size:14px;cursor:pointer;text-align:left}
 .mi:hover{background:var(--rowfocus)}
 .mi[aria-pressed="true"]::after{content:"✓";color:var(--accent);font-weight:600}
+.wrow{display:flex;align-items:center;gap:4px;padding:0 0 0 10px;font-size:14px}
+.wrow>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wrow .wbtn{width:auto;flex:none;padding:8px 10px;color:var(--accent);font-weight:600}
 .mi.danger{color:var(--danger)}
 .mi.arm,.mi.arm:hover{background:var(--danger);color:var(--surface)}
 .msep{height:1px;background:var(--line);margin:4px 2px}
@@ -315,6 +318,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 .mbank{font:600 11px/1 var(--f-mono);color:var(--muted);padding:3px 2px}
 .marea{font:600 10.5px/1 var(--f-mono);letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:3px 5px}
 .node.done>.row .mch{color:var(--muted);background:none;border:1px solid var(--line);text-decoration:line-through}
+#walkReport{display:none}
 .acd{font-family:var(--f-mono);font-size:11.5px;line-height:20px;color:var(--tot);background:var(--tot-soft);border-radius:5px;padding:0 6px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .acd.soon{color:var(--surface);background:var(--tot)}
 .acd.past{color:var(--muted);background:none;border:1px solid var(--line)}
@@ -356,6 +360,30 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
   .thumb{max-height:180px}
   a{color:#000}
   @page{margin:14mm}
+}
+@media print{
+  html.walkprint body>*:not(#walkReport){display:none!important}
+  html.walkprint #walkReport{display:block!important;font:11pt/1.4 -apple-system,"Segoe UI",Inter,Arial,sans-serif;color:#000}
+  #walkReport header{border-bottom:2px solid #000;margin-bottom:10pt;padding-bottom:4pt}
+  #walkReport h1{font-size:18pt;margin:0}
+  #walkReport header p{margin:2pt 0 0;color:#444;font-size:9.5pt}
+  #walkReport h2{font-size:14pt;margin:14pt 0 4pt}
+  #walkReport h3{font-size:12pt;margin:10pt 0 4pt}
+  #walkReport h4{font-size:11pt;margin:8pt 0 3pt}
+  #walkReport h2,#walkReport h3,#walkReport h4{break-after:avoid}
+  #walkReport table{width:100%;border-collapse:collapse;margin-bottom:6pt}
+  #walkReport col.cm{width:26mm}
+  #walkReport th{text-align:left;font-size:9.5pt;border-bottom:1.5px solid #000;padding:3pt 4pt}
+  #walkReport td{border-bottom:.5px solid #bbb;padding:3pt 4pt;vertical-align:top}
+  #walkReport tr{break-inside:avoid}
+  #walkReport td.m{font-weight:700;font-variant-numeric:tabular-nums}
+  #walkReport tr.done td{color:#666}
+  #walkReport em{font-style:normal;font-size:9pt}
+  #walkReport .ph{display:flex;flex-wrap:wrap;gap:4pt;margin-top:4pt}
+  #walkReport figure{margin:0;width:62mm}
+  #walkReport figure img{width:100%;max-height:80mm;object-fit:cover;border-radius:2pt;display:block}
+  #walkReport figcaption{font-size:8.5pt;color:#444}
+  @page{margin:12mm}
 }
 </style>
 </head>
@@ -598,6 +626,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="vimbar" id="vimBar" hidden></div>
+<div id="walkReport" aria-hidden="true"></div>
 <div class="alarmbox" id="alarmBox" hidden role="alert"></div>
 <div class="scrim" id="alarmModal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="alH">
@@ -2699,9 +2728,17 @@ const walkName=h=>plain(h.text).replace(/^\s*\$/,'').trim();
 function fillWalk(){
   const box=$('walkBtns');box.textContent='';
   const tops=walkHeads(),hs=walkHeadsAll(),names=[...new Set(hs.map(walkName))];
-  const add=(label,list)=>{const b=document.createElement('button');b.className='mi';b.type='button';b.textContent=label;b.addEventListener('click',()=>copyWalk(list));box.append(b)};
-  names.forEach(nm=>add('Copy $'+nm,hs.filter(h=>walkName(h)===nm)));
-  if(new Set(tops.map(walkName)).size>1)add('Copy all walkabout lists',tops);
+  const pdf=typeof window.tlPrintWalk==='function';
+  /* one row per list: its name, then Copy (for Excel) and PDF */
+  const add=(label,list)=>{
+    const r=document.createElement('div');r.className='wrow';
+    const l=document.createElement('span');l.textContent=label;r.append(l);
+    const b=document.createElement('button');b.className='mi wbtn';b.type='button';b.textContent='Copy';b.title='Copy for Excel';b.addEventListener('click',()=>copyWalk(list));r.append(b);
+    if(pdf){const q=document.createElement('button');q.className='mi wbtn';q.type='button';q.textContent='PDF';q.title='Save as PDF or print';q.addEventListener('click',()=>window.tlPrintWalk(list));r.append(q)}
+    box.append(r);
+  };
+  names.forEach(nm=>add('$'+nm,hs.filter(h=>walkName(h)===nm)));
+  if(new Set(tops.map(walkName)).size>1)add('All lists',tops);
   if(hs.length){
     /* on: list name, sub-headings and Machine | Fault rows; off: just the machines and faults */
     const t=document.createElement('button');t.className='mi';t.type='button';t.textContent='Copy with headings';
@@ -2710,17 +2747,20 @@ function fillWalk(){
     box.append(t);
   }
 }
-function copyWalk(hs){
-  /* laid out like a report: the list's name, then its sub-headings marked > (and >> further down),
-     each with a Machine | Fault header over its machines */
-  const rows=[];let count=0,allTbl=true,need=false,ctx=null;
-  const head=(name,d)=>{rows.push({k:'title',c:[(d?'>'.repeat(d)+' ':'')+name,'']});need=true};
+/* the rows of one or more lists, as a report: titles (with depth), Machine | Fault headers, machines (with the line's photos) */
+function walkRows(hs){
+  const rows=[];let count=0,allTbl=true,need=false,hd=null;
+  const head=(name,d)=>{rows.push({k:'title',d,c:[(d?'>'.repeat(d)+' ':'')+name,''],name});need=true};
+  const IMG=/!\[([^\]]*)\]\(img:([\w.-]+)\)/g;
   function lines(n,d){
     n.children.forEach(c=>{
       const p=walkParseN(c);
       if(p){
-        if(need){rows.push({k:'head',c:[p.table?'Table':'Machine','Fault']});need=false}
-        p.machines.forEach(m=>{rows.push({k:'row',c:[m,walkFault(p)]});count++});
+        /* the column says Table only when every line under it is a table */
+        if(need){hd={k:'head',c:['Table','Fault']};rows.push(hd);need=false}
+        if(hd&&!p.table)hd.c[0]='Machine';
+        const imgs=[...c.text.matchAll(IMG)].map(m=>({c:m[1],k:m[2]}));
+        p.machines.forEach((m,i)=>{rows.push({k:'row',c:[m,walkFault(p)],done:c.done,imgs:i?[]:imgs});count++});
         if(!p.table)allTbl=false;
         if(c.children.length)lines(c,d);
       }else if(W_OPEN.test(c.text)||W_CLOSE.test(c.text)){if(c.children.length)lines(c,d)}
@@ -2728,14 +2768,19 @@ function copyWalk(hs){
     });
   }
   hs.forEach(h=>{head(walkName(h),0);lines(h,0)});
+  return{rows,count,allTbl};
+}
+const walkCountLabel=(n,tbl)=>n+(tbl?(n===1?' table':' tables'):(n===1?' machine':' machines'));
+function copyWalk(hs){
+  let{rows,count,allTbl}=walkRows(hs);
   if(!count){toast('No machines to copy');return}
-  if(store.settings.walkPlain){const keep=rows.filter(r=>r.k==='row');rows.length=0;rows.push(...keep)}
+  if(store.settings.walkPlain)rows=rows.filter(r=>r.k==='row');
   const text=rows.map(r=>r.c.join('\t')).join('\n');
   const cell=(v,st)=>'<td'+(st?' style="'+st+'"':'')+'>'+esc(String(v))+'</td>';
   const html='<table>'+rows.map(r=>'<tr>'+(r.k==='row'?cell(r.c[0],/^\d+$/.test(r.c[0])?'mso-number-format:0':'')+cell(r.c[1])
     :r.k==='head'?cell(r.c[0],'font-weight:bold')+cell(r.c[1],'font-weight:bold')
     :cell(r.c[0],'font-weight:bold')+cell(''))+'</tr>').join('')+'</table>';
-  copyRich(text,html,'Copied '+count+(allTbl?(count===1?' table':' tables'):(count===1?' machine':' machines'))+'. Paste into Excel');
+  copyRich(text,html,'Copied '+walkCountLabel(count,allTbl)+'. Paste into Excel');
 }
 /* ---------- Copy for Excel: item, budget, actual, difference (and % when used) ---------- */
 function excelLabel(n,hasValue){
@@ -2839,6 +2884,35 @@ $('printBtn').addEventListener('click',()=>{
     try{window.print()}catch(e){done();toast("This browser can't print here. Open the page in Safari or Chrome and print from there")}
   },80);
 });
+/* ---------- Walkabout → PDF: a clean report of one list (or all), with photos. Print, then "Save as PDF" ---------- */
+window.tlPrintWalk=async function(hs){
+  setPop(false);
+  const{rows,count,allTbl}=walkRows(hs);
+  if(!count){toast('No machines in this list');return}
+  const box=$('walkReport'),d=new Date(),p2=n=>String(n).padStart(2,'0');
+  const when=d.getFullYear()+'.'+p2(d.getMonth()+1)+'.'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes());
+  const z=node(cur().zoom),title=plain(z&&z.id!=='root'&&z.text?z.text:cur().title||'Walkabout');
+  let h='<header><h1>'+esc(title)+'</h1><p>'+esc(walkCountLabel(count,allTbl))+' · printed '+when+'</p></header>',open=false;
+  const close=()=>{if(open){h+='</tbody></table>';open=false}};
+  rows.forEach(r=>{
+    if(r.k==='title'){close();h+='<h'+Math.min(4,r.d+2)+'>'+esc(r.name)+'</h'+Math.min(4,r.d+2)+'>';return}
+    if(r.k==='head'){close();h+='<table><colgroup><col class="cm"><col></colgroup><thead><tr><th>'+esc(r.c[0])+'</th><th>'+esc(r.c[1])+'</th></tr></thead><tbody>';open=true;return}
+    h+='<tr'+(r.done?' class="done"':'')+'><td class="m">'+esc(r.c[0])+'</td><td>'+esc(r.c[1])+(r.done?' <em>(fixed)</em>':'')+
+      (r.imgs.length?'<div class="ph">'+r.imgs.map(x=>'<figure><img data-img="'+esc(x.k)+'" alt="">'+(x.c?'<figcaption>'+esc(x.c)+'</figcaption>':'')+'</figure>').join('')+'</div>':'')+'</td></tr>';
+  });
+  close();box.innerHTML=h;
+  /* wait for the photos before printing */
+  await Promise.all([...box.querySelectorAll('img[data-img]')].map(async im=>{
+    const u=await imgURL(im.dataset.img);if(!u){im.closest('figure').remove();return}
+    await new Promise(res=>{im.onload=im.onerror=res;im.src=u});
+  }));
+  const was=document.title;document.title=title;
+  document.documentElement.classList.add('walkprint');
+  const done=()=>{document.documentElement.classList.remove('walkprint');document.title=was;box.textContent='';window.removeEventListener('afterprint',done);document.removeEventListener('pointerdown',later,true)};
+  const later=()=>setTimeout(done,300);
+  window.addEventListener('afterprint',done);
+  setTimeout(()=>{document.addEventListener('pointerdown',later,true);try{window.print()}catch(e){done();toast("This browser can't print here")}},60);
+};
 /* more menu */
 const pop=$('pop'),moreBtn=$('moreBtn');
 function fillMove(){
