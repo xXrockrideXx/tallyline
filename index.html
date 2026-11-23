@@ -353,6 +353,28 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 }
 @media (pointer:coarse){body.editing .kbar{display:flex}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* walkabout report: printed on a PC, turned into a PDF file on a phone */
+.wrep{font:11pt/1.4 -apple-system,"Segoe UI",Inter,Arial,sans-serif;color:#000;background:#fff}
+.wrep header{border-bottom:2px solid #000;margin-bottom:10pt;padding-bottom:4pt}
+.wrep h1{font-size:18pt;margin:0}
+.wrep header p{margin:2pt 0 0;color:#444;font-size:9.5pt}
+.wrep h2{font-size:14pt;margin:14pt 0 4pt}
+.wrep h3{font-size:12pt;margin:10pt 0 4pt}
+.wrep h4{font-size:11pt;margin:8pt 0 3pt}
+.wrep h2,.wrep h3,.wrep h4{break-after:avoid}
+.wrep table{width:100%;border-collapse:collapse;margin-bottom:6pt}
+.wrep col.cm{width:26mm}
+.wrep th{text-align:left;font-size:9.5pt;border-bottom:1.5px solid #000;padding:3pt 4pt}
+.wrep td{border-bottom:.5px solid #bbb;padding:3pt 4pt;vertical-align:top}
+.wrep tr{break-inside:avoid}
+.wrep td.m{font-weight:700;font-variant-numeric:tabular-nums}
+.wrep tr.done td{color:#666}
+.wrep em{font-style:normal;font-size:9pt}
+.wrep .ph{display:flex;flex-wrap:wrap;gap:4pt;margin-top:4pt}
+.wrep figure{margin:0;width:62mm}
+.wrep figure img{width:auto;max-width:100%;max-height:80mm;border-radius:2pt;display:block}
+.wrep figcaption{font-size:8.5pt;color:#444}
+.wrep.grey img{filter:grayscale(1)}
 /* printing: just the outline (or the zoomed-in item and everything under it), fully open, black on white */
 @media print{
   html:root:not(#print),html:root[data-theme]:not(#print){--bg:#fff;--surface:#fff;--panel:#f1f1f1;--ink:#000;--muted:#333;--faint:#777;--line:#bbb;--rule:#ddd;--rowfocus:transparent;--accent:#000;--accent-soft:transparent;--result:#000;--result-soft:transparent;--tot:#000;--tot-soft:transparent;--avg:#000;--avg-soft:transparent;--var:#000;--var-soft:transparent;--hit:transparent;--ring:#d4d4d4;color-scheme:light}
@@ -373,27 +395,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 }
 @media print{
   html.walkprint body>*:not(#walkReport){display:none!important}
-  html.walkprint #walkReport{display:block!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font:11pt/1.4 -apple-system,"Segoe UI",Inter,Arial,sans-serif;color:#000}
-  #walkReport header{border-bottom:2px solid #000;margin-bottom:10pt;padding-bottom:4pt}
-  #walkReport h1{font-size:18pt;margin:0}
-  #walkReport header p{margin:2pt 0 0;color:#444;font-size:9.5pt}
-  #walkReport h2{font-size:14pt;margin:14pt 0 4pt}
-  #walkReport h3{font-size:12pt;margin:10pt 0 4pt}
-  #walkReport h4{font-size:11pt;margin:8pt 0 3pt}
-  #walkReport h2,#walkReport h3,#walkReport h4{break-after:avoid}
-  #walkReport table{width:100%;border-collapse:collapse;margin-bottom:6pt}
-  #walkReport col.cm{width:26mm}
-  #walkReport th{text-align:left;font-size:9.5pt;border-bottom:1.5px solid #000;padding:3pt 4pt}
-  #walkReport td{border-bottom:.5px solid #bbb;padding:3pt 4pt;vertical-align:top}
-  #walkReport tr{break-inside:avoid}
-  #walkReport td.m{font-weight:700;font-variant-numeric:tabular-nums}
-  #walkReport tr.done td{color:#666}
-  #walkReport em{font-style:normal;font-size:9pt}
-  #walkReport .ph{display:flex;flex-wrap:wrap;gap:4pt;margin-top:4pt}
-  #walkReport figure{margin:0;width:62mm}
-  #walkReport figure img{width:100%;max-height:80mm;object-fit:cover;border-radius:2pt;display:block}
-  #walkReport figcaption{font-size:8.5pt;color:#444}
-  #walkReport.grey img{filter:grayscale(1)}
+  html.walkprint #walkReport{display:block!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   @page{margin:12mm}
 }
 </style>
@@ -642,6 +644,18 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="vimbar" id="vimBar" hidden></div>
 <div id="walkReport" aria-hidden="true"></div>
+<div class="scrim" id="sheetModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shH">
+    <h2 id="shH">Ready</h2>
+    <p class="mtext" id="shMsg"></p>
+    <div class="mrow" style="flex-wrap:wrap;gap:8px">
+      <button class="btn primary" id="shShare" type="button">Share</button>
+      <button class="btn" id="shCopy" type="button">Copy</button>
+      <button class="btn" id="shOpen" type="button">Open</button>
+      <span style="flex:1"></span><button class="btn" data-close type="button">Close</button>
+    </div>
+  </div>
+</div>
 <div class="alarmbox" id="alarmBox" hidden role="alert"></div>
 <div class="scrim" id="alarmModal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="alH">
@@ -1177,17 +1191,48 @@ function caretAtEdge(el,dir){
 }
 let toastT;
 function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,1800)}
+function copyOld(text){
+  /* the older way, which also works on an iPhone when it is in a tap */
+  const ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');ta.style.cssText='position:fixed;top:0;left:0;opacity:0;font-size:16px';document.body.append(ta);
+  ta.focus();ta.select();try{ta.setSelectionRange(0,text.length)}catch(e){}
+  let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();return ok;
+}
 function copy(text,label){
   const done=()=>toast(label||('Copied '+text));
-  const fallback=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.append(ta);ta.select();
-    try{document.execCommand('copy');done()}catch(e){toast('Select the text and copy it with Ctrl+C')}ta.remove()};
+  const fallback=()=>{if(copyOld(text))done();else sheetText(text,label)};
   try{navigator.clipboard.writeText(text).then(done,fallback)}catch(e){fallback()}
 }
+/* when a phone refuses to copy or share straight away (it only allows it in a fresh tap), offer buttons for it */
+let sheet=null;
+function sheetText(text,label){
+  sheet={text,label};$('shH').textContent='Ready to copy';
+  $('shMsg').textContent='Tap Copy, then paste it into Excel or a message. Or Share it to another app.';
+  $('shCopy').hidden=false;$('shOpen').hidden=true;$('shShare').hidden=!navigator.share;openModal($('sheetModal'));
+}
+function sheetFile(file,title){
+  sheet={file};$('shH').textContent=title||'Ready';
+  const canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}));
+  $('shMsg').textContent=canShare?'Tap Share to save it to Files or send it on WhatsApp or email.':'Tap Open to see it, then save or share it from there.';
+  $('shShare').hidden=!canShare;$('shCopy').hidden=true;$('shOpen').hidden=false;openModal($('sheetModal'));
+}
+$('shCopy').addEventListener('click',()=>{
+  const t=sheet&&sheet.text;if(t==null)return;
+  const ok=()=>{toast(sheet.label||'Copied');closeModals()};
+  try{navigator.clipboard.writeText(t).then(ok,()=>{if(copyOld(t))ok();else toast("This phone won't allow copying here. Use Share")})}catch(e){if(copyOld(t))ok()}
+});
+$('shShare').addEventListener('click',async()=>{
+  if(!sheet)return;
+  try{await navigator.share(sheet.file?{files:[sheet.file],title:sheet.file.name}:{text:sheet.text});closeModals()}catch(e){if(e&&e.name!=='AbortError')toast("Couldn't share")}
+});
+$('shOpen').addEventListener('click',()=>{
+  if(!sheet||!sheet.file)return;const u=URL.createObjectURL(sheet.file),a=document.createElement('a');
+  a.href=u;a.target='_blank';a.rel='noopener';a.download=sheet.file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);
+});
 /* copy with formatting where the browser allows it (bold headings in Excel), plain text otherwise */
 function copyRich(text,html,label){
   try{
     if(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){
-      navigator.clipboard.write([new ClipboardItem({'text/plain':new Blob([text],{type:'text/plain'}),'text/html':new Blob([html],{type:'text/html'})})]).then(()=>toast(label),()=>copy(text,label));
+      navigator.clipboard.write([new ClipboardItem({'text/plain':new Blob([text],{type:'text/plain'}),'text/html':new Blob([html],{type:'text/html'})})]).then(()=>toast(label),()=>{if(copyOld(text))toast(label);else sheetText(text,label)});
       return;
     }
   }catch(e){}
@@ -3073,12 +3118,14 @@ window.tlPrintWalk=async function(hs){
     h+='<tr'+(r.done?' class="done"':'')+'><td class="m">'+esc(r.c[0])+'</td><td>'+esc(r.c[1])+(r.done?' <em>(fixed)</em>':'')+
       (r.imgs.length?'<div class="ph">'+r.imgs.map(x=>'<figure><img data-img="'+esc(x.k)+'" alt="">'+(x.c?'<figcaption>'+esc(x.c)+'</figcaption>':'')+'</figure>').join('')+'</div>':'')+'</td></tr>';
   });
-  close();box.innerHTML=h;box.classList.toggle('grey',!!store.settings.pdfGrey);
+  close();box.innerHTML=h;box.classList.add('wrep');box.classList.toggle('grey',!!store.settings.pdfGrey);
   /* wait for the photos before printing */
   await Promise.all([...box.querySelectorAll('img[data-img]')].map(async im=>{
     const u=await imgURL(im.dataset.img);if(!u){im.closest('figure').remove();return}
     await new Promise(res=>{im.onload=im.onerror=res;im.src=u});
   }));
+  /* on a phone: make a real PDF file and offer it to share or save (phones can't print from a home-screen app) */
+  if(touchOnly()){await phonePdf(box,title,when);return}
   const was=document.title;document.title=title;
   document.documentElement.classList.add('walkprint');
   const done=()=>{document.documentElement.classList.remove('walkprint');document.title=was;box.textContent='';window.removeEventListener('afterprint',done);document.removeEventListener('pointerdown',later,true)};
@@ -3086,6 +3133,42 @@ window.tlPrintWalk=async function(hs){
   window.addEventListener('afterprint',done);
   setTimeout(()=>{document.addEventListener('pointerdown',later,true);try{window.print()}catch(e){done();toast("This browser can't print here")}},60);
 };
+
+/* the PDF library is only loaded the first time it is needed */
+let h2p=null;
+function loadH2P(){
+  if(window.html2pdf)return Promise.resolve(window.html2pdf);
+  return h2p||(h2p=new Promise((res,rej)=>{const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/html2pdf.js@0.14.0/dist/html2pdf.bundle.min.js';sc.onload=()=>window.html2pdf?res(window.html2pdf):rej();sc.onerror=()=>{h2p=null;rej()};document.head.append(sc)}));
+}
+async function phonePdf(box,title,when){
+  toast('Making the PDF…');
+  let lib;try{lib=await loadH2P()}catch(e){box.textContent='';toast('Could not load the PDF maker. Check your connection and try again');return}
+  /* lay the report out at A4 width, out of sight */
+  const page=document.createElement('div');page.className='wrep'+(box.classList.contains('grey')?' grey':'');page.innerHTML=box.innerHTML;
+  page.style.cssText='width:720px;padding:0;background:#fff';
+  const hold=document.createElement('div');hold.style.cssText='position:fixed;left:-10000px;top:0;width:720px';hold.append(page);
+  document.body.append(hold);
+  /* photos: copy them in as plain pictures (greyed here when asked, since the PDF maker ignores CSS filters) */
+  const grey=page.classList.contains('grey'),src=[...box.querySelectorAll('img')];
+  await Promise.all([...page.querySelectorAll('img')].map(async(im,i)=>{
+    const o=src[i];if(!o||!o.naturalWidth){const f=im.closest('figure');if(f)f.remove();return}
+    const sc=Math.min(1,1400/Math.max(o.naturalWidth,o.naturalHeight)),cv=document.createElement('canvas');
+    cv.width=Math.round(o.naturalWidth*sc);cv.height=Math.round(o.naturalHeight*sc);const c=cv.getContext('2d');
+    if(grey)c.filter='grayscale(1)';c.drawImage(o,0,0,cv.width,cv.height);
+    if(grey&&c.filter==='none'){const d=c.getImageData(0,0,cv.width,cv.height),a=d.data;for(let j=0;j<a.length;j+=4){const v=a[j]*.3+a[j+1]*.59+a[j+2]*.11;a[j]=a[j+1]=a[j+2]=v}c.putImageData(d,0,0)}
+    await new Promise(res=>{im.onload=im.onerror=res;im.src=cv.toDataURL('image/jpeg',.85)});
+  }));
+  page.classList.remove('grey');
+  const name=(title||'Walkabout').replace(/[\\/:*?"<>|]+/g,' ').trim()+'.pdf';
+  let blob;
+  try{
+    blob=await lib().set({margin:[12,12,12,12],filename:name,image:{type:'jpeg',quality:.9},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy'],avoid:['tr','figure','h2','h3','h4']}}).from(page).outputPdf('blob');
+  }catch(e){blob=null}
+  hold.remove();box.textContent='';
+  if(!blob){toast("Couldn't make the PDF");return}
+  sheetFile(new File([blob],name,{type:'application/pdf'}),'PDF ready');
+}
 /* more menu */
 const pop=$('pop'),moreBtn=$('moreBtn');
 function fillMove(){
