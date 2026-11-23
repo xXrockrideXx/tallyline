@@ -3592,16 +3592,20 @@ list.addEventListener('paste',e=>{
   setTimeout(()=>{const x=vEl();if(x&&V.mode!=='insert'){V.mode='normal';vSet(x,getSel(x)[0]-1);vimShow()}},0);
 },true);
 /* clicking into an item shows the block cursor where you clicked; dragging across text starts visual mode */
-function vSync(){requestAnimationFrame(()=>requestAnimationFrame(()=>{
+function vSync(click){requestAnimationFrame(()=>requestAnimationFrame(()=>{
   if(!vimOn()){vimShow();return}
   const t=vEl();if(!t||V.mode==='insert'||sel){vimShow();return}
   vRaw(t);const[a,b]=getSel(t);
+  /* a click past the last letter means "carry on typing here": go straight to insert mode at the end */
+  const n=node(t.dataset.id),L=t.textContent.length;
+  if((click||Date.now()-(V.downAt||0)<700)&&a===b&&a>=L&&n){vInsert(t,n,L);vimShow();return}
   if(b-a>1){V.mode='visual';V.a=a;V.p=b-1;vVis(t)}
   else{if(V.mode==='visual')V.mode='normal';vSet(t,a)}
   vimShow();
 }))}
 list.addEventListener('focusin',e=>{if(vimOn()&&e.target.classList&&e.target.classList.contains('txt'))vSync()});
-list.addEventListener('mouseup',e=>{if(vimOn()&&e.target.closest&&e.target.closest('.txt'))vSync()});
+list.addEventListener('pointerdown',()=>{V.downAt=Date.now()},true);
+list.addEventListener('mouseup',e=>{if(vimOn()&&e.target.closest&&e.target.closest('.txt'))vSync(true)});
 list.addEventListener('focusout',e=>{
   setTimeout(vimShow,0);
   /* some browser add-ons (Vimium and the like) take Esc and just leave the item: treat that as Esc */
