@@ -234,6 +234,14 @@ body.dragmode,body.dragmode *{cursor:grabbing!important;-webkit-user-select:none
 #imgModal .vwrap{flex:1 1 auto;min-height:0;width:100%;display:block}
 #imgModal .vwrap img{width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;border-radius:0;background:none}
 #imgModal .mrow{flex:none}
+#imgModal .vwrap{position:relative}
+#drawCv{position:absolute;touch-action:none;cursor:crosshair}
+.drawbar{flex:none;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
+.dcols{display:flex;gap:8px}
+.dcols button{width:32px;height:32px;border-radius:50%;border:2px solid rgba(255,255,255,.5);background:var(--c);cursor:pointer;padding:0}
+.dcols button[aria-pressed="true"]{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+.dtools{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+#imgModal.drawing .capfield,#imgModal.drawing #imgNav,#imgModal.drawing .vcap,#imgModal.drawing .mrow:last-child{display:none!important}
 .capfield input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:7px;padding:8px 10px;font:inherit;font-size:14px}
 .imgcount{font-size:13px;color:var(--surface);background:color-mix(in srgb,var(--ink) 70%,transparent);padding:3px 10px;border-radius:99px;font-variant-numeric:tabular-nums}
 .nmark{flex:none;margin-top:4px;border:0;background:none;padding:0 3px;cursor:pointer;color:var(--faint);line-height:20px;border-radius:4px;display:inline-grid;place-items:center}
@@ -363,7 +371,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 }
 @media print{
   html.walkprint body>*:not(#walkReport){display:none!important}
-  html.walkprint #walkReport{display:block!important;font:11pt/1.4 -apple-system,"Segoe UI",Inter,Arial,sans-serif;color:#000}
+  html.walkprint #walkReport{display:block!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font:11pt/1.4 -apple-system,"Segoe UI",Inter,Arial,sans-serif;color:#000}
   #walkReport header{border-bottom:2px solid #000;margin-bottom:10pt;padding-bottom:4pt}
   #walkReport h1{font-size:18pt;margin:0}
   #walkReport header p{margin:2pt 0 0;color:#444;font-size:9.5pt}
@@ -383,6 +391,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
   #walkReport figure{margin:0;width:62mm}
   #walkReport figure img{width:100%;max-height:80mm;object-fit:cover;border-radius:2pt;display:block}
   #walkReport figcaption{font-size:8.5pt;color:#444}
+  #walkReport.grey img{filter:grayscale(1)}
   @page{margin:12mm}
 }
 </style>
@@ -587,10 +596,14 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 <input type="file" id="imgInput" accept="image/*" multiple hidden>
 <div class="scrim" id="imgModal" hidden>
   <div class="viewer" role="dialog" aria-modal="true" aria-label="Image">
-    <div class="vwrap"><img id="imgBig" alt="Image"><span class="vcap" id="imgCap" hidden></span></div>
+    <div class="vwrap"><img id="imgBig" alt="Image"><span class="vcap" id="imgCap" hidden></span><canvas id="drawCv" hidden></canvas></div>
+    <div class="drawbar" id="drawBar" hidden>
+      <div class="dcols" role="group" aria-label="Pen colour"><button type="button" data-c="#ff2d2d" aria-pressed="true" style="--c:#ff2d2d" aria-label="Red"></button><button type="button" data-c="#ffd400" style="--c:#ffd400" aria-label="Yellow"></button><button type="button" data-c="#1fbf4c" style="--c:#1fbf4c" aria-label="Green"></button><button type="button" data-c="#2f7bff" style="--c:#2f7bff" aria-label="Blue"></button><button type="button" data-c="#ffffff" style="--c:#ffffff" aria-label="White"></button><button type="button" data-c="#111111" style="--c:#111111" aria-label="Black"></button></div>
+      <div class="dtools"><button class="btn" id="drawThick" type="button">Thin</button><button class="btn" id="drawShape" type="button">Pen</button><button class="btn" id="drawUndo" type="button">Undo</button><button class="btn" id="drawCancel" type="button">Cancel</button><button class="btn primary" id="drawSave" type="button">Save</button></div>
+    </div>
     <div class="capfield"><input id="capInput" type="text" maxlength="140" placeholder="Add a caption" aria-label="Caption" autocomplete="off"><button class="btn" id="capToggle" type="button" aria-pressed="true">Captions on</button></div>
     <div class="mrow" id="imgNav" style="justify-content:center;margin:0"><button class="btn" id="imgPrev" type="button" aria-label="Previous image">‹ Previous</button><span class="imgcount" id="imgCount"></span><button class="btn" id="imgNext" type="button" aria-label="Next image">Next ›</button></div>
-    <div class="mrow" style="justify-content:center;margin:0"><button class="btn" id="imgRemove" type="button">Remove from item</button><button class="btn primary" data-close type="button">Close</button></div>
+    <div class="mrow" style="justify-content:center;margin:0"><button class="btn" id="imgDraw" type="button">Draw</button><button class="btn" id="imgRemove" type="button">Remove from item</button><button class="btn primary" data-close type="button">Close</button></div>
   </div>
 </div>
 <div class="tagpop" id="tagPop" hidden role="listbox" aria-label="Tags you have used"></div>
@@ -2453,6 +2466,70 @@ $('imgModal').addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDe
   big.addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});
   big.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>40)stepImage(dx<0?1:-1)});
 })();
+/* ---------- Draw on a photo: pen, arrow or circle in a few colours. Saving makes a new copy with the drawing; the original stays as it was ---------- */
+(()=>{
+  const cv=$('drawCv'),big=$('imgBig'),modal=$('imgModal'),ctx=cv.getContext('2d');
+  let strokes=[],cur=null,col='#ff2d2d',thick=false,shape='pen',box=null;
+  const SH=['pen','arrow','circle'],SHN={pen:'Pen',arrow:'Arrow',circle:'Circle'};
+  /* where the photo actually sits inside its box (it is fitted, not stretched) */
+  function fit(){
+    const W=big.clientWidth,H=big.clientHeight,nw=big.naturalWidth,nh=big.naturalHeight;if(!nw||!nh)return null;
+    const sc=Math.min(W/nw,H/nh),w=nw*sc,h=nh*sc;
+    return{x:big.offsetLeft+(W-w)/2,y:big.offsetTop+(H-h)/2,w,h,sc,nw,nh};
+  }
+  function place(){
+    box=fit();if(!box)return;
+    const dpr=window.devicePixelRatio||1;
+    cv.style.left=box.x+'px';cv.style.top=box.y+'px';cv.style.width=box.w+'px';cv.style.height=box.h+'px';
+    cv.width=Math.round(box.w*dpr);cv.height=Math.round(box.h*dpr);paint();
+  }
+  /* strokes are kept in the photo's own pixels, so they land in the same place at any size */
+  function drawStroke(c,st,k){
+    c.strokeStyle=st.c;c.fillStyle=st.c;c.lineWidth=st.w*k;c.lineCap='round';c.lineJoin='round';
+    const P=st.p;if(!P.length)return;
+    c.beginPath();
+    if(st.s==='pen'){c.moveTo(P[0][0]*k,P[0][1]*k);P.forEach(q=>c.lineTo(q[0]*k,q[1]*k));if(P.length===1)c.lineTo(P[0][0]*k+.1,P[0][1]*k);c.stroke();return}
+    const a=P[0],b=P[P.length-1];
+    if(st.s==='circle'){const cx=(a[0]+b[0])/2*k,cy=(a[1]+b[1])/2*k,rx=Math.abs(b[0]-a[0])/2*k,ry=Math.abs(b[1]-a[1])/2*k;c.ellipse(cx,cy,Math.max(1,rx),Math.max(1,ry),0,0,Math.PI*2);c.stroke();return}
+    const ang=Math.atan2(b[1]-a[1],b[0]-a[0]),hl=st.w*k*4;
+    c.moveTo(a[0]*k,a[1]*k);c.lineTo(b[0]*k,b[1]*k);c.stroke();
+    c.beginPath();c.moveTo(b[0]*k,b[1]*k);c.lineTo(b[0]*k-hl*Math.cos(ang-.45),b[1]*k-hl*Math.sin(ang-.45));c.lineTo(b[0]*k-hl*Math.cos(ang+.45),b[1]*k-hl*Math.sin(ang+.45));c.closePath();c.fill();
+  }
+  function paint(){
+    ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
+    const k=cv.width/box.nw;strokes.concat(cur?[cur]:[]).forEach(st=>drawStroke(ctx,st,k));
+  }
+  const pt=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/box.sc,(e.clientY-r.top)/box.sc]};
+  cv.addEventListener('pointerdown',e=>{e.preventDefault();cv.setPointerCapture(e.pointerId);const w=Math.max(box.nw,box.nh)*(thick?.012:.005);cur={c:col,w,s:shape,p:[pt(e)]};paint()});
+  cv.addEventListener('pointermove',e=>{if(!cur)return;const q=pt(e);if(cur.s==='pen')cur.p.push(q);else cur.p=[cur.p[0],q];paint()});
+  const end=()=>{if(!cur)return;strokes.push(cur);cur=null;paint()};
+  cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
+  function start(){
+    if(!viewing||!node(viewing.id)||!big.naturalWidth)return;
+    strokes=[];cur=null;modal.classList.add('drawing');$('drawBar').hidden=false;cv.hidden=false;requestAnimationFrame(place);
+  }
+  function stop(){modal.classList.remove('drawing');$('drawBar').hidden=true;cv.hidden=true;strokes=[];cur=null}
+  window.addEventListener('resize',()=>{if(!cv.hidden)place()});
+  $('imgDraw').addEventListener('click',start);
+  $('drawCancel').addEventListener('click',stop);
+  $('drawUndo').addEventListener('click',()=>{strokes.pop();paint()});
+  $('drawThick').addEventListener('click',e=>{thick=!thick;e.currentTarget.textContent=thick?'Thick':'Thin'});
+  $('drawShape').addEventListener('click',e=>{shape=SH[(SH.indexOf(shape)+1)%SH.length];e.currentTarget.textContent=SHN[shape]});
+  $('drawBar').querySelectorAll('.dcols button').forEach(b=>b.addEventListener('click',()=>{col=b.dataset.c;$('drawBar').querySelectorAll('.dcols button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))}));
+  $('drawSave').addEventListener('click',async()=>{
+    const n=viewing&&node(viewing.id);if(!n){stop();return}
+    if(!strokes.length){stop();return}
+    const k0=viewing.keys[viewing.i],out=document.createElement('canvas');out.width=box.nw;out.height=box.nh;
+    const c=out.getContext('2d');c.drawImage(big,0,0);strokes.forEach(st=>drawStroke(c,st,1));
+    const blob=await new Promise(res=>out.toBlob(res,'image/jpeg',.88));
+    if(!blob){toast("Couldn't save the drawing");return}
+    const key=uid()+'.jpg';await IDB.set(key,blob);
+    op(()=>{n.text=n.text.replace(imgRe(k0),m=>m.replace('img:'+k0,'img:'+key))});
+    viewing.keys[viewing.i]=key;stop();showViewing();renderOutline({focus:null});toast('Drawing saved');
+  });
+  /* leaving the viewer ends drawing */
+  new MutationObserver(()=>{if(modal.hidden&&!cv.hidden)stop()}).observe(modal,{attributes:true,attributeFilter:['hidden']});
+})();
 $('imgRemove').addEventListener('click',()=>{
   const n=viewing&&node(viewing.id);if(!n)return;
   const k=viewing.keys[viewing.i];
@@ -2739,6 +2816,12 @@ function fillWalk(){
   };
   names.forEach(nm=>add('$'+nm,hs.filter(h=>walkName(h)===nm)));
   if(new Set(tops.map(walkName)).size>1)add('All lists',tops);
+  if(hs.length&&pdf){
+    const g=document.createElement('button');g.className='mi';g.type='button';g.textContent='PDF photos in colour';
+    g.setAttribute('aria-pressed',String(store.settings.pdfGrey!==true));
+    g.addEventListener('click',()=>{store.settings.pdfGrey=!store.settings.pdfGrey;save();g.setAttribute('aria-pressed',String(!store.settings.pdfGrey));toast(store.settings.pdfGrey?'PDF photos in black and white':'PDF photos in colour')});
+    box.append(g);
+  }
   if(hs.length){
     /* on: list name, sub-headings and Machine | Fault rows; off: just the machines and faults */
     const t=document.createElement('button');t.className='mi';t.type='button';t.textContent='Copy with headings';
@@ -2752,19 +2835,29 @@ function walkRows(hs){
   const rows=[];let count=0,allTbl=true,need=false,hd=null;
   const head=(name,d)=>{rows.push({k:'title',d,c:[(d?'>'.repeat(d)+' ':'')+name,''],name});need=true};
   const IMG=/!\[([^\]]*)\]\(img:([\w.-]+)\)/g;
-  function lines(n,d){
+  const imgsOf=t=>[...(t||'').matchAll(IMG)].map(m=>({c:m[1],k:m[2]}));
+  /* photos on the line itself and on the lines indented under it (down to the next machine line) */
+  const photos=c=>{const o=imgsOf(c.text);(function w(n){n.children.forEach(k=>{if(walkParseN(k))return;o.push(...imgsOf(k.text));w(k)})})(c);return o};
+  const needHead=t=>{if(need){hd={k:'head',c:['Table','Fault']};rows.push(hd);need=false}if(hd&&!t)hd.c[0]='Machine'};
+  function lines(n,d,inMachine){
     n.children.forEach(c=>{
       const p=walkParseN(c);
       if(p){
         /* the column says Table only when every line under it is a table */
-        if(need){hd={k:'head',c:['Table','Fault']};rows.push(hd);need=false}
-        if(hd&&!p.table)hd.c[0]='Machine';
-        const imgs=[...c.text.matchAll(IMG)].map(m=>({c:m[1],k:m[2]}));
+        needHead(p.table);
+        const imgs=photos(c);
         p.machines.forEach((m,i)=>{rows.push({k:'row',c:[m,walkFault(p)],done:c.done,imgs:i?[]:imgs});count++});
         if(!p.table)allTbl=false;
-        if(c.children.length)lines(c,d);
+        if(c.children.length)lines(c,d,true);
       }else if(W_OPEN.test(c.text)||W_CLOSE.test(c.text)){if(c.children.length)lines(c,d)}
       else if(c.children.length&&walkLines(c).length){head(walkName(c),d+1);lines(c,d+1)}
+      else if(!inMachine){
+        /* a note in the list without a machine (Smoking area vents to be sprayed), with its photos */
+        const t=plain(c.text),imgs=photos(c);
+        if(!t&&!imgs.length)return;
+        if(!t&&rows.length&&rows[rows.length-1].k==='row'){rows[rows.length-1].imgs.push(...imgs);return}
+        needHead(true);rows.push({k:'row',note:true,c:['',t.replace(/\t/g,' ')],done:c.done,imgs});
+      }
     });
   }
   hs.forEach(h=>{head(walkName(h),0);lines(h,0)});
@@ -2900,7 +2993,7 @@ window.tlPrintWalk=async function(hs){
     h+='<tr'+(r.done?' class="done"':'')+'><td class="m">'+esc(r.c[0])+'</td><td>'+esc(r.c[1])+(r.done?' <em>(fixed)</em>':'')+
       (r.imgs.length?'<div class="ph">'+r.imgs.map(x=>'<figure><img data-img="'+esc(x.k)+'" alt="">'+(x.c?'<figcaption>'+esc(x.c)+'</figcaption>':'')+'</figure>').join('')+'</div>':'')+'</td></tr>';
   });
-  close();box.innerHTML=h;
+  close();box.innerHTML=h;box.classList.toggle('grey',!!store.settings.pdfGrey);
   /* wait for the photos before printing */
   await Promise.all([...box.querySelectorAll('img[data-img]')].map(async im=>{
     const u=await imgURL(im.dataset.img);if(!u){im.closest('figure').remove();return}
