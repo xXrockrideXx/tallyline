@@ -2489,6 +2489,8 @@ $('imgModal').addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDe
     const P=st.p;if(!P.length)return;
     c.beginPath();
     if(st.s==='pen'){c.moveTo(P[0][0]*k,P[0][1]*k);P.forEach(q=>c.lineTo(q[0]*k,q[1]*k));if(P.length===1)c.lineTo(P[0][0]*k+.1,P[0][1]*k);c.stroke();return}
+    if(st.s==='poly'){c.moveTo(P[0][0]*k,P[0][1]*k);P.slice(1).forEach(q=>c.lineTo(q[0]*k,q[1]*k));c.closePath();c.stroke();return}
+    if(st.s==='line'){c.moveTo(P[0][0]*k,P[0][1]*k);c.lineTo(P[1][0]*k,P[1][1]*k);c.stroke();return}
     const a=P[0],b=P[P.length-1];
     if(st.s==='circle'){const cx=(a[0]+b[0])/2*k,cy=(a[1]+b[1])/2*k,rx=Math.abs(b[0]-a[0])/2*k,ry=Math.abs(b[1]-a[1])/2*k;c.ellipse(cx,cy,Math.max(1,rx),Math.max(1,ry),0,0,Math.PI*2);c.stroke();return}
     const ang=Math.atan2(b[1]-a[1],b[0]-a[0]),hl=st.w*k*4;
@@ -2500,9 +2502,56 @@ $('imgModal').addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDe
     const k=cv.width/box.nw;strokes.concat(cur?[cur]:[]).forEach(st=>drawStroke(ctx,st,k));
   }
   const pt=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/box.sc,(e.clientY-r.top)/box.sc]};
-  cv.addEventListener('pointerdown',e=>{e.preventDefault();cv.setPointerCapture(e.pointerId);const w=Math.max(box.nw,box.nh)*(thick?.012:.005);cur={c:col,w,s:shape,p:[pt(e)]};paint()});
-  cv.addEventListener('pointermove',e=>{if(!cur)return;const q=pt(e);if(cur.s==='pen')cur.p.push(q);else cur.p=[cur.p[0],q];paint()});
-  const end=()=>{if(!cur)return;strokes.push(cur);cur=null;paint()};
+  /* hold still at the end of a pen stroke and it becomes a neat shape: circle, square or rectangle, triangle or straight line */
+  function rdp(P,eps){
+    if(P.length<3)return P.slice();
+    const[a,b]=[P[0],P[P.length-1]],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1;
+    let mi=0,md=0;for(let i=1;i<P.length-1;i++){const d=Math.abs(dy*P[i][0]-dx*P[i][1]+b[0]*a[1]-b[1]*a[0])/L;if(d>md){md=d;mi=i}}
+    if(md<=eps)return[a,b];
+    return rdp(P.slice(0,mi+1),eps).slice(0,-1).concat(rdp(P.slice(mi),eps));
+  }
+  function snap(st){
+    const P=st.p;if(P.length<6)return false;
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;P.forEach(q=>{x0=Math.min(x0,q[0]);y0=Math.min(y0,q[1]);x1=Math.max(x1,q[0]);y1=Math.max(y1,q[1])});
+    const W=x1-x0,H=y1-y0,D=Math.hypot(W,H);if(D<10)return false;
+    const a=P[0],b=P[P.length-1],gap=Math.hypot(b[0]-a[0],b[1]-a[1]);
+    if(gap>D*.3){
+      /* open stroke: a straight line if it hardly bends */
+      const dev=rdp(P,D*.08).length;
+      if(dev<=2){st.s='line';st.p=[a,b];return true}
+      return false;
+    }
+    /* closed stroke: count its corners */
+    /* split the loop at its far point so the simplification has two proper ends */
+    const ring=P.concat([a]);let f=0,fd=0;ring.forEach((q,i)=>{const d=Math.hypot(q[0]-a[0],q[1]-a[1]);if(d>fd){fd=d;f=i}});
+    let v=rdp(ring.slice(0,f+1),D*.07).slice(0,-1).concat(rdp(ring.slice(f),D*.07).slice(0,-1));
+    /* drop points that sit on a straight edge (where the stroke started, say) */
+    for(let again=true;again&&v.length>3;){again=false;
+      for(let i=0;i<v.length;i++){const p0=v[(i+v.length-1)%v.length],p1=v[i],p2=v[(i+1)%v.length];
+        const a1=Math.atan2(p0[1]-p1[1],p0[0]-p1[0]),a2=Math.atan2(p2[1]-p1[1],p2[0]-p1[0]);let ang=Math.abs(a1-a2);if(ang>Math.PI)ang=2*Math.PI-ang;
+        if(ang>2.6){v.splice(i,1);again=true;break}}}
+    const merged=[];v.forEach(q=>{if(!merged.length||Math.hypot(q[0]-merged[merged.length-1][0],q[1]-merged[merged.length-1][1])>D*.12)merged.push(q)});
+    if(merged.length>1&&Math.hypot(merged[0][0]-merged[merged.length-1][0],merged[0][1]-merged[merged.length-1][1])<D*.12)merged.pop();
+    const n=merged.length;
+    if(n===3){st.s='poly';st.p=merged;return true}
+    if(n===4){
+      let w=W,h=H;if(Math.abs(w-h)<Math.max(w,h)*.15){w=h=(w+h)/2}
+      const cx=(x0+x1)/2,cy=(y0+y1)/2;st.s='poly';st.p=[[cx-w/2,cy-h/2],[cx+w/2,cy-h/2],[cx+w/2,cy+h/2],[cx-w/2,cy+h/2]];return true;
+    }
+    /* round: a circle when it is nearly as wide as it is tall */
+    let w=W,h=H;if(Math.abs(w-h)<Math.max(w,h)*.2){w=h=(w+h)/2}
+    const cx=(x0+x1)/2,cy=(y0+y1)/2;st.s='circle';st.p=[[cx-w/2,cy-h/2],[cx+w/2,cy+h/2]];return true;
+  }
+  let holdT=null,snapped=false,lastQ=null;
+  const armHold=()=>{clearTimeout(holdT);holdT=setTimeout(()=>{if(cur&&cur.s==='pen'&&snap(cur)){snapped=true;paint();try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}},550)};
+  cv.addEventListener('pointerdown',e=>{e.preventDefault();cv.setPointerCapture(e.pointerId);const w=Math.max(box.nw,box.nh)*(thick?.012:.005);cur={c:col,w,s:shape,p:[pt(e)]};snapped=false;lastQ=pt(e);if(shape==='pen')armHold();paint()});
+  cv.addEventListener('pointermove',e=>{
+    if(!cur||snapped)return;const q=pt(e);
+    if(cur.s==='pen'){cur.p.push(q);if(Math.hypot(q[0]-lastQ[0],q[1]-lastQ[1])*box.sc>4){lastQ=q;armHold()}}
+    else cur.p=[cur.p[0],q];
+    paint();
+  });
+  const end=()=>{clearTimeout(holdT);if(!cur)return;strokes.push(cur);cur=null;snapped=false;paint()};
   cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
   function start(){
     if(!viewing||!node(viewing.id)||!big.naturalWidth)return;
