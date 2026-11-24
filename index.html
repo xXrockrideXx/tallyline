@@ -3888,26 +3888,26 @@ $('alarmsBtn').addEventListener('click',()=>{setPop(false);aUnlock();drawAlarms(
 $('alarmNotify').addEventListener('click',()=>{try{Notification.requestPermission().then(drawAlarms)}catch(e){}});
 $('alarmTest').addEventListener('click',()=>{aUnlock();aBeep()});
 setTimeout(alarmTick,1500);
-/* ---------- ✨ Claude: suggestions, prices and tidy-up for lists marked #ai (GitHub version; uses your own Anthropic API key) ---------- */
+/* ---------- ✨ Claude: suggestions, prices and tidy-up, only for documents in the folder called AI
+   (GitHub version; uses your own Anthropic API key). Nothing outside that folder is ever sent ---------- */
 (()=>{
   const KEY='tallyline.aikey',MODEL='claude-haiku-5-5';
   const getKey=()=>{try{return localStorage.getItem(KEY)||''}catch(e){return''}};
   const setKey=k=>{try{k?localStorage.setItem(KEY,k):localStorage.removeItem(KEY)}catch(e){}};
   const AI_TAG=/(^|\s)#ai(?=$|[\s.,;:!?)])/i;
   $('aiBtn').hidden=false;
-  /* the list Claude works on: the zoomed-in item or one above it marked #ai, or the whole document when its title has #ai */
+  const inAI=d=>!!(d&&d.folder&&d.folder.trim().toLowerCase()==='ai');
+  /* the list Claude works on: whatever you are zoomed into, or the whole document, as long as it is in the AI folder */
   function aiList(){
-    const d=cur();reindex(d);
-    for(let n=node(d.zoom);n&&n.id!=='root';n=par(n.id))if(AI_TAG.test(n.text))return n;
-    if(AI_TAG.test(d.title||''))return d.root;
-    return null;
+    const d=cur();if(!inAI(d))return null;reindex(d);
+    return node(d.zoom)||d.root;
   }
   const clean=t=>plain(t||'').replace(AI_TAG,' ').replace(/\s*=:?\s*$|\s+:\s*$/,'').replace(/\s+/g,' ').trim();
   function items(n){const o=[];(function w(x){x.children.forEach(c=>{const t=plain(c.text).trim();if(t)o.push(t);w(c)})})(n);return o.slice(0,200)}
   /* earlier lists with the same name (last month's "Shopping list"), for what you usually buy */
   function pastItems(n){
     const name=clean(n===cur().root?cur().title:n.text).toLowerCase(),out=[];if(!name)return out;
-    store.docs.forEach(d=>{if(d.type!=='outline')return;(function w(x){x.children.forEach(c=>{if(c!==n&&clean(c.text).toLowerCase()===name)out.push(...items(c));w(c)})})(d.root)});
+    store.docs.forEach(d=>{if(d.type!=='outline'||!inAI(d))return;(function w(x){x.children.forEach(c=>{if(c!==n&&clean(c.text).toLowerCase()===name)out.push(...items(c));w(c)})})(d.root)});
     return[...new Set(out)].slice(0,300);
   }
   async function ask(prompt){
@@ -3952,17 +3952,16 @@ setTimeout(alarmTick,1500);
       return;
     }
     if(!n){
-      b.append(el('<div class="aisec"><p class="mtext">Claude only works on lists you choose. Zoom into your shopping list (tap its dot) and tap below, or add <b>#ai</b> to the list\'s heading yourself.</p><div class="aiacts"><button class="btn primary" type="button" id="aiOn">Use Claude on this list</button><button class="btn" type="button" id="aiKeyEdit">API key</button></div></div>'));
+      b.append(el('<div class="aisec"><p class="mtext">Claude only works on documents in the folder called <b>AI</b>, and never sees anything else. Move your shopping list document there to use it.</p><div class="aiacts"><button class="btn primary" type="button" id="aiOn">Move this document to AI</button><button class="btn" type="button" id="aiKeyEdit">API key</button></div></div>'));
       $('aiOn').addEventListener('click',()=>{
-        const d=cur(),z=node(d.zoom);
-        if(z&&z.id!=='root'){op(()=>{z.text=z.text.replace(/(\s*=:?\s*|\s+:\s*)?$/,m=>' #ai'+m)})}
-        else{d.title=(d.title||'').trim()+' #ai';save()}
-        render();toast('Claude switched on for this list');draw();
+        const d=cur();let f=findFolder('AI');
+        if(!f){store.folders.push({name:'AI',open:true});ensureFolders();f=findFolder('AI')}
+        d.folder=f.name;save();render();toast('Moved to the AI folder');draw();
       });
       $('aiKeyEdit').addEventListener('click',()=>draw(true));
       return;
     }
-    const name=clean(n===cur().root?cur().title:n.text)||'this list';
+    const name=clean(n===cur().root?cur().title:n.text)||'this document';
     b.append(el('<div class="aisec"><p class="mtext">Working on <b>'+esc(name)+'</b> ('+items(n).length+' items).</p><div class="aiacts"><button class="btn" type="button" id="aiSug">Suggest items</button><button class="btn" type="button" id="aiPri">Add prices</button><button class="btn" type="button" id="aiKeyEdit">API key</button></div></div>'));
     b.append(el('<div class="aisec"><textarea id="aiIn" placeholder="Type or paste what you need: milk, bread, 2kg chicken, coffee for the office…"></textarea><div class="aiacts"><button class="btn" type="button" id="aiTidy">Turn into list items</button></div></div>'));
     b.append(el('<div class="aiout"></div>'));
