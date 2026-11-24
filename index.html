@@ -1470,7 +1470,11 @@ function evaluate(root){
       else if(fl){
         const ctx=mkctx();
         const r=c.children.length?kids():null;
-        if(r&&r.k){fromKids(r);show=true;const nm=fl.expr.match(/^\s*([A-Za-z_]\w*)\s*$/);if(nm&&v!=null)scope[nm[1]]=asVal({v,u,tm,st})}
+        const nm=fl.expr.match(/^\s*([A-Za-z_]\w*)\s*$/);
+        if(r&&r.k){fromKids(r);show=true;if(nm&&v!=null)scope[nm[1]]=asVal({v,u,tm,st})}
+        /* a heading with nothing to add up yet (Petrol = with empty lines under it) stays blank: it must not show
+           Petrol from an earlier month, and later sums this month see it as 0 */
+        else if(nm&&c.children.length){if(Object.prototype.hasOwnProperty.call(scope,nm[1]))scope[nm[1]]=0}
         else if(!(fl.count&&c.children.length)){
           const isDef=ASSIGN.test(fl.expr),sk=summaryKind(fl.expr,scope);
           const q=Calc.line(fl.expr,isDef?scope:Object.assign({},scope),ctx);if(q.k==='val'){take(q);show=true;kind=sk}
