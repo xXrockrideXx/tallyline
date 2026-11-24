@@ -102,7 +102,10 @@ button{font:inherit;color:inherit}
 .tagpop button.vopt{color:var(--var);font-weight:600}
 .tagpop button.vopt.on{background:var(--var-soft)}
 .tagpop small{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums}
-.pop{position:absolute;top:calc(100% - 4px);right:max(16px,env(safe-area-inset-right,0px));z-index:15;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:6px;width:min(260px,calc(100vw - 32px));box-sizing:border-box;display:flex;flex-direction:column;gap:1px}
+.pop{position:absolute;top:calc(100% - 4px);right:max(16px,env(safe-area-inset-right,0px));z-index:15;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:6px;width:min(260px,calc(100vw - 32px));box-sizing:border-box;display:flex;flex-direction:column;gap:1px;
+  /* a long menu scrolls inside itself on a phone */
+  max-height:calc(100vh - 96px);max-height:calc(100dvh - 96px - env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.pop>*{flex:none}
 .mi{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;background:none;border-radius:6px;padding:9px 10px;font-size:14px;cursor:pointer;text-align:left}
 .mi:hover{background:var(--rowfocus)}
 .mi[aria-pressed="true"]::after{content:"✓";color:var(--accent);font-weight:600}
