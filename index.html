@@ -329,6 +329,17 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 .marea{font:600 10.5px/1 var(--f-mono);letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:3px 5px}
 .node.done>.row .mch{color:var(--muted);background:none;border:1px solid var(--line);text-decoration:line-through}
 #walkReport{display:none}
+.aisec{display:grid;gap:8px;margin:0 0 14px}
+.aisec textarea,.aisec input[type=password],.aisec input[type=text]{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.aisec textarea{min-height:90px;resize:vertical}
+.aiacts{display:flex;flex-wrap:wrap;gap:8px}
+.aires{display:grid;gap:2px;max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:4px}
+.aires label{display:flex;gap:10px;align-items:flex-start;padding:8px 6px;border-radius:6px;cursor:pointer}
+.aires label:hover{background:var(--accent-soft)}
+.aires input{margin-top:3px;width:18px;height:18px;flex:none}
+.aires small{display:block;color:var(--muted);font-size:12.5px}
+.aires .pr{margin-left:auto;font-family:var(--f-mono);color:var(--tot);white-space:nowrap}
+.aibusy{color:var(--muted);font-size:14px}
 .acd{font-family:var(--f-mono);font-size:11.5px;line-height:20px;color:var(--tot);background:var(--tot-soft);border-radius:5px;padding:0 6px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .acd.soon{color:var(--surface);background:var(--tot)}
 .acd.past{color:var(--muted);background:none;border:1px solid var(--line)}
@@ -449,6 +460,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="msep"></div>
         <button class="mi" id="printBtn" type="button">Print</button>
         <button class="mi" id="exportBtn" type="button">Export and backup</button>
+        <button class="mi" id="aiBtn" type="button" hidden>✨ Claude</button>
         <button class="mi" id="alarmsBtn" type="button">Alarms</button>
         <button class="mi" id="vimBtn" type="button" aria-pressed="false">Vim keys</button>
         <button class="mi" id="keysBtn" type="button">Help and shortcuts</button>
@@ -644,6 +656,13 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="vimbar" id="vimBar" hidden></div>
 <div id="walkReport" aria-hidden="true"></div>
+<div class="scrim" id="aiModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="aiH">
+    <h2 id="aiH">✨ Claude</h2>
+    <div id="aiBody"></div>
+    <div class="mrow" style="flex-wrap:wrap;gap:8px"><span style="flex:1"></span><button class="btn" data-close type="button">Close</button></div>
+  </div>
+</div>
 <div class="scrim" id="sheetModal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shH">
     <h2 id="shH">Ready</h2>
@@ -3869,6 +3888,117 @@ $('alarmsBtn').addEventListener('click',()=>{setPop(false);aUnlock();drawAlarms(
 $('alarmNotify').addEventListener('click',()=>{try{Notification.requestPermission().then(drawAlarms)}catch(e){}});
 $('alarmTest').addEventListener('click',()=>{aUnlock();aBeep()});
 setTimeout(alarmTick,1500);
+/* ---------- ✨ Claude: suggestions, prices and tidy-up for lists marked #ai (GitHub version; uses your own Anthropic API key) ---------- */
+(()=>{
+  const KEY='tallyline.aikey',MODEL='claude-haiku-5-5';
+  const getKey=()=>{try{return localStorage.getItem(KEY)||''}catch(e){return''}};
+  const setKey=k=>{try{k?localStorage.setItem(KEY,k):localStorage.removeItem(KEY)}catch(e){}};
+  const AI_TAG=/(^|\s)#ai(?=$|[\s.,;:!?)])/i;
+  $('aiBtn').hidden=false;
+  /* the list Claude works on: the zoomed-in item or one above it marked #ai, or the whole document when its title has #ai */
+  function aiList(){
+    const d=cur();reindex(d);
+    for(let n=node(d.zoom);n&&n.id!=='root';n=par(n.id))if(AI_TAG.test(n.text))return n;
+    if(AI_TAG.test(d.title||''))return d.root;
+    return null;
+  }
+  const clean=t=>plain(t||'').replace(AI_TAG,' ').replace(/\s*=:?\s*$|\s+:\s*$/,'').replace(/\s+/g,' ').trim();
+  function items(n){const o=[];(function w(x){x.children.forEach(c=>{const t=plain(c.text).trim();if(t)o.push(t);w(c)})})(n);return o.slice(0,200)}
+  /* earlier lists with the same name (last month's "Shopping list"), for what you usually buy */
+  function pastItems(n){
+    const name=clean(n===cur().root?cur().title:n.text).toLowerCase(),out=[];if(!name)return out;
+    store.docs.forEach(d=>{if(d.type!=='outline')return;(function w(x){x.children.forEach(c=>{if(c!==n&&clean(c.text).toLowerCase()===name)out.push(...items(c));w(c)})})(d.root)});
+    return[...new Set(out)].slice(0,300);
+  }
+  async function ask(prompt){
+    const key=getKey();if(!key)throw new Error('nokey');
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:MODEL,max_tokens:1500,system:'You help with a shopping list in a notes app used in South Africa. Prices are in South African rand at typical supermarkets (Checkers, Pick n Pay, Shoprite, Woolworths). Reply with only JSON, no other text.',messages:[{role:'user',content:prompt}]})});
+    const j=await r.json().catch(()=>null);
+    if(!r.ok){const m=j&&j.error&&j.error.message||('Error '+r.status);throw new Error(r.status===401?'badkey':m)}
+    const txt=(j.content||[]).map(c=>c.text||'').join('');
+    const a=txt.indexOf('{'),b=txt.lastIndexOf('}');if(a<0||b<a)throw new Error("Claude's answer couldn't be read. Try again");
+    return JSON.parse(txt.slice(a,b+1));
+  }
+  const body=()=>$('aiBody');
+  const el=(h)=>{const d=document.createElement('div');d.innerHTML=h;return d.firstElementChild};
+  function fail(e){
+    const m=e&&e.message;
+    if(m==='nokey'||m==='badkey'){if(m==='badkey')toast('That key was refused. Check it and save it again');draw(true);return}
+    body().querySelector('.aiout').innerHTML='<p class="aibusy">'+esc(/fetch|network/i.test(m||'')?'No connection to Claude. Check your internet and try again':(m||'Something went wrong'))+'</p>';
+  }
+  /* a list of choices with ticks, and a button to add the ticked ones */
+  function choices(rows,btn,apply){
+    const out=body().querySelector('.aiout');
+    if(!rows.length){out.innerHTML='<p class="aibusy">Nothing to add.</p>';return}
+    out.innerHTML='<div class="aires">'+rows.map((x,i)=>'<label><input type="checkbox" checked data-i="'+i+'"><span>'+esc(x.label)+(x.sub?'<small>'+esc(x.sub)+'</small>':'')+'</span>'+(x.price!=null?'<span class="pr">R '+fmt(x.price)+'</span>':'')+'</label>').join('')+'</div>';
+    const b=el('<div class="aiacts" style="margin-top:8px"><button class="btn primary" type="button">'+esc(btn)+'</button></div>');
+    b.firstElementChild.addEventListener('click',()=>{const pick=[...out.querySelectorAll('input:checked')].map(x=>rows[+x.dataset.i]);if(!pick.length)return;apply(pick);closeModals();renderOutline({focus:null})});
+    out.append(b);
+  }
+  const busy=t=>{body().querySelector('.aiout').innerHTML='<p class="aibusy">'+esc(t)+'</p>'};
+  const target=()=>{const n=aiList();if(!n){draw();return null}return n};
+  const addItems=(n,list)=>op(()=>{list.forEach(t=>n.children.push(mk(t)))});
+  /* the list adds itself up once prices are in */
+  const ensureTotal=n=>{if(n!==cur().root&&!eqFlags(n.text.trim()))n.text=n.text.replace(/\s*$/,' =')};
+
+  function draw(askKey){
+    const b=body();b.textContent='';
+    const key=getKey(),n=aiList();
+    if(!key||askKey){
+      b.append(el('<div class="aisec"><p class="mtext">Claude needs an Anthropic API key. Make one at <b>console.anthropic.com</b> → API keys, add a little credit, and paste it here. It stays on this device only. Each use costs a fraction of a rand.</p><input type="password" id="aiKeyIn" placeholder="sk-ant-…" autocomplete="off" value="'+esc(key)+'"><div class="aiacts"><button class="btn primary" type="button" id="aiKeySave">Save key</button>'+(key?'<button class="btn" type="button" id="aiKeyDel">Remove key</button>':'')+'</div></div>'));
+      $('aiKeySave').addEventListener('click',()=>{const v=$('aiKeyIn').value.trim();if(!/^sk-/.test(v)){toast('That doesn\'t look like an API key');return}setKey(v);toast('Key saved on this device');draw()});
+      if(key)$('aiKeyDel').addEventListener('click',()=>{setKey('');toast('Key removed');draw()});
+      return;
+    }
+    if(!n){
+      b.append(el('<div class="aisec"><p class="mtext">Claude only works on lists you choose. Zoom into your shopping list (tap its dot) and tap below, or add <b>#ai</b> to the list\'s heading yourself.</p><div class="aiacts"><button class="btn primary" type="button" id="aiOn">Use Claude on this list</button><button class="btn" type="button" id="aiKeyEdit">API key</button></div></div>'));
+      $('aiOn').addEventListener('click',()=>{
+        const d=cur(),z=node(d.zoom);
+        if(z&&z.id!=='root'){op(()=>{z.text=z.text.replace(/(\s*=:?\s*|\s+:\s*)?$/,m=>' #ai'+m)})}
+        else{d.title=(d.title||'').trim()+' #ai';save()}
+        render();toast('Claude switched on for this list');draw();
+      });
+      $('aiKeyEdit').addEventListener('click',()=>draw(true));
+      return;
+    }
+    const name=clean(n===cur().root?cur().title:n.text)||'this list';
+    b.append(el('<div class="aisec"><p class="mtext">Working on <b>'+esc(name)+'</b> ('+items(n).length+' items).</p><div class="aiacts"><button class="btn" type="button" id="aiSug">Suggest items</button><button class="btn" type="button" id="aiPri">Add prices</button><button class="btn" type="button" id="aiKeyEdit">API key</button></div></div>'));
+    b.append(el('<div class="aisec"><textarea id="aiIn" placeholder="Type or paste what you need: milk, bread, 2kg chicken, coffee for the office…"></textarea><div class="aiacts"><button class="btn" type="button" id="aiTidy">Turn into list items</button></div></div>'));
+    b.append(el('<div class="aiout"></div>'));
+    $('aiKeyEdit').addEventListener('click',()=>draw(true));
+    $('aiSug').addEventListener('click',async()=>{
+      const t=target();if(!t)return;busy('Asking Claude for ideas…');
+      try{
+        const j=await ask('Shopping list now:\n'+(items(t).join('\n')||'(empty)')+'\n\nItems from earlier lists with the same name:\n'+(pastItems(t).join('\n')||'(none)')+'\n\nSuggest up to 12 items that are probably missing: things bought before that are not on the list now, and obvious companions. Do not repeat items already on the list. JSON: {"suggestions":[{"item":"short item name with quantity if useful","reason":"few words"}]}');
+        choices((j.suggestions||[]).filter(x=>x&&x.item).map(x=>({label:String(x.item),sub:x.reason?String(x.reason):''})),'Add ticked items',pick=>addItems(t,pick.map(x=>x.label)));
+      }catch(e){fail(e)}
+    });
+    $('aiPri').addEventListener('click',async()=>{
+      const t=target();if(!t)return;
+      const no=[];(function w(x){x.children.forEach(c=>{const s2=plain(c.text).trim();if(s2&&!c.children.length&&!/:\s*R?\s*[\d.,]+\s*$/i.test(s2))no.push(c);w(c)})})(t);
+      const list=no;
+      if(!list.length){busy('Every item already has a price.');return}
+      busy('Asking Claude for prices…');
+      try{
+        const j=await ask('Give a typical current supermarket price in rand for each item, for the quantity written (assume a normal pack size if none). Items:\n'+list.map((c,i)=>(i+1)+'. '+plain(c.text).trim()).join('\n')+'\n\nJSON: {"prices":[{"n":1,"price":number,"note":"pack size you assumed, few words"}]}');
+        const rows=(j.prices||[]).map(x=>{const c=list[(x.n|0)-1];return c&&isFinite(+x.price)?{c,label:plain(c.text).trim(),sub:x.note?String(x.note):'',price:Math.round(+x.price*100)/100}:null}).filter(Boolean);
+        choices(rows,'Add these prices',pick=>op(()=>{pick.forEach(x=>{x.c.text=x.c.text.replace(/\s*$/,'')+': '+x.price});ensureTotal(t)}));
+        const o=body().querySelector('.aiout');if(rows.length)o.prepend(el('<p class="mtext">Estimates only. Untick any you know, and the list will total the rest.</p>'));
+      }catch(e){fail(e)}
+    });
+    $('aiTidy').addEventListener('click',async()=>{
+      const t=target();if(!t)return;const v=$('aiIn').value.trim();if(!v){$('aiIn').focus();return}
+      busy('Tidying it up…');
+      try{
+        const j=await ask('Turn this into a clean shopping list, one item per entry, keeping quantities, fixing spelling, short names, no duplicates of these existing items:\n'+(items(t).join('\n')||'(none)')+'\n\nText:\n'+v+'\n\nJSON: {"items":["item"]}');
+        choices((j.items||[]).filter(Boolean).map(x=>({label:String(x)})),'Add to the list',pick=>{addItems(t,pick.map(x=>x.label));$('aiIn').value=''});
+      }catch(e){fail(e)}
+    });
+  }
+  $('aiBtn').addEventListener('click',()=>{setPop(false);draw();openModal($('aiModal'))});
+})();
+
 /* ---------- Alarms → calendar file (GitHub version: the phone's own calendar rings even when Tallyline is closed) ---------- */
 $('alarmIcs').hidden=false;
 $('alarmIcs').addEventListener('click',()=>{
