@@ -237,7 +237,9 @@ body.dragmode,body.dragmode *{cursor:grabbing!important;-webkit-user-select:none
 #imgModal .vwrap{flex:1 1 auto;min-height:0;width:100%;display:block}
 #imgModal .vwrap img{width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;border-radius:0;background:none}
 #imgModal .mrow{flex:none}
-#imgModal .vwrap{position:relative}
+#imgModal .vwrap{position:relative;overflow:hidden}
+#imgModal .vwrap.zoomed #imgBig{cursor:grab}
+#imgBig{will-change:transform;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 #drawCv{position:absolute;touch-action:none;cursor:crosshair}
 #drawCv.erasing{cursor:cell}
 #drawErase[aria-pressed="true"]{background:var(--accent);color:var(--surface);border-color:var(--accent)}
@@ -2520,7 +2522,7 @@ $('capInput').addEventListener('input',e=>{
 $('capInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.target.blur()}if(e.key!=='Escape')e.stopPropagation()});
 function showViewing(){
   const v=viewing,big=$('imgBig'),L=v.keys.length;
-  big.removeAttribute('src');big.alt='Image '+(v.i+1)+' of '+L;
+  zoomImg.reset();big.removeAttribute('src');big.alt='Image '+(v.i+1)+' of '+L;
   const k=v.keys[v.i];imgURL(k).then(u=>{if(u&&viewing&&viewing.keys[viewing.i]===k)big.src=u});
   $('imgNav').hidden=L<2;$('imgCount').textContent=(v.i+1)+' of '+L;
   const n=node(v.id);$('capInput').value=captionOf(n,k);$('capInput').disabled=!n;paintCaption();
@@ -2535,9 +2537,51 @@ function stepImage(dir){if(!viewing||viewing.keys.length<2)return;viewing.i=(vie
 $('imgPrev').addEventListener('click',()=>stepImage(-1));
 $('imgNext').addEventListener('click',()=>stepImage(1));
 $('imgModal').addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDefault();stepImage(-1)}else if(e.key==='ArrowRight'){e.preventDefault();stepImage(1)}});
-(()=>{let x0=null;const big=$('imgBig');
-  big.addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});
-  big.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>40)stepImage(dx<0?1:-1)});
+/* zoom: pinch or double-tap on a phone, scroll wheel or double-click on a PC; drag to look around.
+   At normal size a sideways swipe still goes to the next photo */
+const zoomImg=(()=>{
+  const big=$('imgBig'),wrap=big.parentElement,pts=new Map();
+  let s=1,tx=0,ty=0,start=null,lastTap=0,moved=false;
+  const apply=()=>{big.style.transform=s===1?'':'translate('+tx+'px,'+ty+'px) scale('+s+')';wrap.classList.toggle('zoomed',s>1);$('imgCap').style.visibility=s>1?'hidden':''};
+  /* keep the photo from sliding off the screen */
+  const clamp=()=>{const W=big.clientWidth,H=big.clientHeight,mx=W*(s-1)/2,my=H*(s-1)/2;tx=Math.max(-mx,Math.min(mx,tx));ty=Math.max(-my,Math.min(my,ty))};
+  /* zoom to a new size, keeping the point under the finger where it is */
+  function zoomAt(ns,cx,cy){
+    ns=Math.max(1,Math.min(6,ns));const r=wrap.getBoundingClientRect(),ox=cx-r.left-big.offsetLeft-big.clientWidth/2,oy=cy-r.top-big.offsetTop-big.clientHeight/2;
+    tx=ox-(ox-tx)*ns/s;ty=oy-(oy-ty)*ns/s;s=ns;if(s<1.02){s=1;tx=ty=0}clamp();apply();
+  }
+  const reset=()=>{s=1;tx=ty=0;pts.clear();start=null;apply()};
+  big.style.touchAction='none';big.style.transformOrigin='50% 50%';
+  big.addEventListener('pointerdown',e=>{
+    big.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);moved=false;
+    if(pts.size===2){const[a,b]=[...pts.values()];start={d:Math.hypot(a[0]-b[0],a[1]-b[1]),s,mx:(a[0]+b[0])/2,my:(a[1]+b[1])/2,tx,ty}}
+    else if(pts.size===1)start={x:e.clientX,y:e.clientY,tx,ty};
+  });
+  big.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId))return;pts.set(e.pointerId,[e.clientX,e.clientY]);if(!start)return;
+    if(pts.size===2&&start.d){
+      const[a,b]=[...pts.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]),mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;
+      s=start.s;tx=start.tx+(mx-start.mx);ty=start.ty+(my-start.my);zoomAt(start.s*d/start.d,mx,my);moved=true;
+    }else if(pts.size===1&&start.x!=null){
+      const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.abs(dx)+Math.abs(dy)>6)moved=true;
+      if(s>1){tx=start.tx+dx;ty=start.ty+dy;clamp();apply()}
+    }
+  });
+  const up=e=>{
+    if(!pts.has(e.pointerId))return;
+    const was=pts.size,st=start;pts.delete(e.pointerId);
+    if(was===1&&st&&st.x!=null){
+      const dx=e.clientX-st.x;
+      if(s===1&&moved&&Math.abs(dx)>40&&e.pointerType!=='mouse')stepImage(dx<0?1:-1);
+      else if(!moved){const now=Date.now();if(now-lastTap<300){zoomAt(s>1?1:2.5,e.clientX,e.clientY);lastTap=0}else lastTap=now}
+    }
+    /* one finger lifted after a pinch: carry on panning with the other */
+    if(pts.size===1){const[q]=[...pts.values()];start={x:q[0],y:q[1],tx,ty};moved=true}else if(!pts.size)start=null;
+  };
+  big.addEventListener('pointerup',up);big.addEventListener('pointercancel',up);
+  big.addEventListener('wheel',e=>{e.preventDefault();zoomAt(s*Math.exp(-e.deltaY*.0015),e.clientX,e.clientY)},{passive:false});
+  big.addEventListener('load',reset);window.addEventListener('resize',()=>{clamp();apply()});
+  return{reset};
 })();
 /* ---------- Draw on a photo: pen, arrow or circle in a few colours. The drawing is a layer over the untouched photo:
    saving shows a copy with the drawing, and the strokes stay editable (eraser, undo) the next time ---------- */
@@ -2646,7 +2690,7 @@ $('imgModal').addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDe
     /* drawn before: put the untouched photo back underneath and bring the strokes back */
     const L=await loadLayer(k);
     if(L&&L.o){const u=await imgURL(L.o);if(u){await new Promise(res=>{big.onload=big.onerror=res;big.src=u});big.onload=big.onerror=null;orig=L.o;strokes=(L.s||[]).slice()}}
-    setErase(false);modal.classList.add('drawing');$('drawBar').hidden=false;cv.hidden=false;requestAnimationFrame(place);
+    zoomImg.reset();setErase(false);modal.classList.add('drawing');$('drawBar').hidden=false;cv.hidden=false;requestAnimationFrame(place);
   }
   function stop(){modal.classList.remove('drawing');$('drawBar').hidden=true;cv.hidden=true;strokes=[];hist=[];cur=null;setErase(false)}
   function setErase(on){erasing=on;$('drawErase').setAttribute('aria-pressed',String(on));cv.classList.toggle('erasing',on)}
